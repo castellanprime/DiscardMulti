@@ -217,7 +217,17 @@ class Controller(object):
 					return_message)
 
 	def remove_game_conn(self, user_id):
-		pass
+		for room in self.rooms:
+			for player in room.get_roomates():
+				if player.user_id == user_id:
+					print(player.nickname, " connection has been closed")
+					break
+		self.game_conns = [ game_conn for game_conn in self.game_conns
+					if game_conn.user_id != user_id
+				]
+	
+	def shutdown(self):
+		return len(self.game_conns) == 0
 
 class RoomHandler(web.RequestHandler):
 	""" This handles connections relating to the rooms that house a game"""
@@ -314,8 +324,9 @@ class GameHandler(websocket.WebSocketHandler):
 		return True
 
 	def on_close(self):
-		print("Websocket closed")
 		self.controller.remove_game_conn(self.clientId)
+		if self.controller.shutdown():
+			sys.exit()
 
 class Server(web.Application):
 	""" This is the main entry point to the server"""
@@ -336,6 +347,6 @@ if __name__ == "__main__":
 		server = httpserver.HTTPServer(application)
 		server.listen(8888)
 		ioloop.IOLoop.instance().start()
-	except KeyboardInterrupt:
+	except (SystemExit, KeyboardInterrupt):
 		ioloop.IOLoop.instance().stop()
 		print("Server closed")

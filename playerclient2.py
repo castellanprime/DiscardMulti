@@ -150,10 +150,13 @@ class PlayerController(object):
 
 	def send_test_message(self):
 		choice = self.get_str_input('Send a message: ')
-		msg = {'cmd': 'GAME_MESSAGE',
-			'roomid': self.player.get_room_id(),
-			'userid': self.player.get_user_id(),
-			'message': choice }
+		if choice == "End":
+			msg = {}
+		else:
+			msg = {'cmd': 'GAME_MESSAGE',
+				'roomid': self.player.get_room_id(),
+				'userid': self.player.get_user_id(),
+				'message': choice }
 		return json.dumps(msg)
 
 	def generate_wsmessage(self):
@@ -163,7 +166,7 @@ class PlayerController(object):
 			msg = self.ping()
 		else:
 			msg = self.send_test_message()
-			if msg['message'] == "End":
+			if msg == json.dumps({}):
 				return None 
 		return msg
 
