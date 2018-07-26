@@ -1,0 +1,76 @@
+Script started on 2018-07-26 20:03:41+0000
+kec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ ptyhon[K[K[K[K[Kython [K3 playerclient2.py 
+==== Starting game ====
+==== Getting rooms to play the game ====
+The rooms available: 
+ 0) {'roomid': 'cd1f1018aaf94cf38aca6fff2f4e3ace', 'num_of_cur_players': 2, 'num_of_players_remaining': 1}
+Choose room to join: 0
+{'roomid': 'cd1f1018aaf94cf38aca6fff2f4e3ace', 'num_of_cur_players': 2, 'num_of_players_remaining': 1}
+What is your username?: Mary
+You selected:  cd1f1018aaf94cf38aca6fff2f4e3ace
+{'status': 'JOIN_REP', 'prompt': 'You have been added to room cd1f1018aaf94cf38aca6fff2f4e3ace'}
+Initial server connection
+[[ In communicate_with_websocket ]]
+[[ In handle_msg ]]
+Received game message from server:  {'prompt': 'Just joined the game', 'username': 'Mary', 'cmd': 'GAME_JOIN_REP'}
+[[ In send_wsmessage ]]
+[[ In generate_wsmessage ]]
+[[ Writing game message to send to server ]]
+[[ In handle_msg ]]
+{'status': 'START_GAME_REP', 'prompt': 'Game has already started'}
+Received game message from server:  {'cmd': 'GAME_MESSAGE_REP', 'prompt': 'Game is initializing'}
+[[ In send_wsmessage ]]
+[[ In generate_wsmessage ]]
+Send a message: Tools
+[[ Writing game message to send to server ]]
+[[ In handle_msg ]]
+Received game message from server:  {'cmd': 'GAME_MESSAGE_REP', 'prompt': 'Game is in session'}
+[[ In send_wsmessage ]]
+[[ In generate_wsmessage ]]
+Send a message: End
+Client closed
+kec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ clear
+[H[Jkec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ clear
+[H[Jkec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ clear
+[H[Jkec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ script l[KClient3Testing 
+Script started, file is Client3Testing
+kec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ ptyhpn[K[K[K[K[Kythopn[K[Kn3 dsa[K[K[Kplayerclient2.py 
+==== Starting game ====
+==== Getting rooms to play the game ====
+The rooms available: 
+ 0) {'roomid': 'bbef21337ae64acf9d91f7683940e7aa', 'num_of_cur_players': 2, 'num_of_players_remaining': 1}
+Choose room to join: 0
+{'roomid': 'bbef21337ae64acf9d91f7683940e7aa', 'num_of_cur_players': 2, 'num_of_players_remaining': 1}
+What is your username?: Dave
+You selected:  bbef21337ae64acf9d91f7683940e7aa
+{'status': 'JOIN_REP', 'prompt': 'You have been added to room bbef21337ae64acf9d91f7683940e7aa'}
+Initial server connection
+[[ In communicate_with_websocket ]]
+[[ In handle_msg ]]
+Received game message from server:  {'prompt': 'Just joined the game', 'username': 'Dave', 'cmd': 'GAME_JOIN_REP'}
+[[ In send_wsmessage ]]
+[[ In generate_wsmessage ]]
+[[ Writing game message to send to server ]]
+[[ In handle_msg ]]
+{'status': 'START_GAME_REP', 'prompt': 'Game has already started'}
+Received game message from server:  {'cmd': 'GAME_MESSAGE_REP', 'prompt': 'Game is initializing'}
+[[ In send_wsmessage ]]
+[[ In generate_wsmessage ]]
+Send a message: Cool
+[[ Writing game message to send to server ]]
+[[ In handle_msg ]]
+Received game message from server:  {'cmd': 'GAME_MESSAGE_REP', 'prompt': 'Game is in session'}
+[[ In send_wsmessage ]]
+[[ In generate_wsmessage ]]
+Send a message: ^CClient closed
+kec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ clear
+[H[Jkec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ clear
+[H[Jkec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ clear[K[K[K[K[Kscript Client3Testing 
+Script started, file is Client3Testing
+kec2-user@ip-172-31-33-255:~/Game2\[ec2-user@ip-172-31-33-255 Game2]$ ptyh[K[K[Kython3 playerclient2.py 
+==== Starting game ====
+==== Getting rooms to play the game ====
+The rooms available: 
+ 0) {'roomid': '091e5a5582e14016a4f8173d933174eb', 'num_of_cur_players': 2, 'num_of_players_remaining': 1}
+Choose room to join: 0
+{'roomid': '091e5a5582e14016a4f8173d933174eb', 'num_of_cur_players
