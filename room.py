@@ -17,7 +17,7 @@ class Room(object):
 	def get_num_of_cur_players(self):
 		return len(self.players)
 
-	def add_player_to_room(self, username, user_id):
+	def add_player(self, username, user_id):
 		player = RoomPlayer(nickname=username, user_id=user_id)
 		self.players.append(player)
 
