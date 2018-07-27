@@ -27,3 +27,9 @@ the room should not have started,
 person who created the room in the first place. The joining user(s) hang and 
 cant send any new messages.
 - TODO: To fix Bug 3
+
+Date: July 27, 2018 	Redesign 1
+==================================
+
+- Implement a way to push notifications instead of polling
+during initial connections
