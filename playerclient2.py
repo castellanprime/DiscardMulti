@@ -174,10 +174,14 @@ class PlayerController(object):
 		print("[[ In handle_msg ]]")
 		cmd = ClientEnum[msg['cmd']]
 		if cmd == ClientEnum.GAME_MESSAGE_REP and \
-			msg['prompt'] == 'Game is initializing':
+			msg['payload'][['prompt'] == ClientRcvMessage.value:
 			if self.has_initialised == False:
 				self.has_initialised = True
 				self.start_game()
+		elif all(( cmd == ClientRcvMessage.GAME_MESSAGE_REP,
+			msg['payload']['prompt'] == ClientRcvMessage.value )):
+			if self.has_initialised == False:
+				self.has_initialised = True
 		elif cmd == ClientEnum.ASK_FOR_ROOMATES:
 			self.show_roomates()
 		print("Received game message from server: ", msg)
