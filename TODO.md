@@ -33,3 +33,9 @@ Date: July 27, 2018 	Redesign 1
 
 - Implement a way to push notifications instead of polling
 during initial connections
+
+Date: July 28, 2018
+========================
+
+- Refactored code
+
