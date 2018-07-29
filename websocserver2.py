@@ -37,14 +37,15 @@ import sys
 import uuid
 
 from tornado import ( web, options, httpserver, ioloop, 
-		websocket, log, escape )
+						websocket, log, escape 
+					)
 from random import randint
 
-from serverenums import ( ServerEnum, ClientEnum, 
-			RoomGameState, RoomGameStatus, 
-			ClientRcvMessage )	
+from serverenums import ( RoomGameState, RoomGameStatus, 
+						RoomRequest, ClientRcvMessage 
+					)	
 from room import Room
-from playerconn import PlayerGameConn
+from utils import PlayerGameConn, DiscardMessage
 
 class Controller(object):
 	""" This handles the rooms that houses a game """
@@ -134,6 +135,7 @@ class Controller(object):
 		:param room_id: Room identifier
 		:returns: list -- all the roomates of a particular Player
 		roomates = []
+		"""
 		for room in self.rooms:
 			if all((room.get_room_id() == room_id, 
 				room.is_player_in_room(user_id) == True )):
@@ -163,10 +165,9 @@ class Controller(object):
 		:param msg: Message to be broadcasted
 		"""
 		if len(self.game_conns) > 0:
-			msg_ = json.dumps(msg)
 			for player_conns in self.game_conns:
 				conn = player_conns.wssocket
-				conn.write_message(msg_)
+				conn.write_message(DiscardMessage.to_json(msg))
 
 	def all_roomates_cb(self):
 		roomates = []
@@ -202,15 +203,10 @@ class Controller(object):
 					roomates_callback=callback)
 			print("A new game connection has been created")
 			self.game_conns.append(game_conn)
-			prompt = username + " just joined game"
-			self.broadcast_game_message(user_id, room_id,
-				{
-					'cmd': ClientRcvMessage.PLAYER_JOINED_GAME.value,
-					'payload': {
-						'prompt': prompt
-					}
-				}
-			)
+			prompt_ = username + " just joined game"
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.PLAYER_JOINED_GAME.value,
+				prompt=prompt_)
+			self.broadcast_game_message(user_id, room_id, msg_)
 			#game_conn.startCallBack()
 		print("[[ Out of add_game_conn ]]")
 
@@ -240,7 +236,9 @@ class Controller(object):
 		for game_conn in self.game_conns:
 			if all(( game_conn.user_id == user_id, 
 				game_conn.room_id == room_id)):
-				game_conn.wssocket.write_message(json.dumps(msg))
+				game_conn.wssocket.write_message(
+					DiscardMessage.to_json(msg)
+				)
 				break
 
 	def stop_all_roomates_cb(self, room_id):
@@ -255,61 +253,44 @@ class Controller(object):
 		:param
 		"""
 		print("[[ In handle_wsmessage ]]")
-		cmd = RoomGameStatus[msg['cmd']]
+		cmd = RoomGameStatus[msg.cmd]
 		msg_ = {}
 		prompt_ = ""
-		if cmd == ServerEnum.ARE_ROOMATES_IN_GAME:
-			room_id = msg['roomid']
+		data = msg.get_data()
+		room_id = data['roomid']
+		user_id = data['userid']
+		if cmd == RoomGameStatus.ARE_ROOMATES_IN_GAME:
 			for room in self.rooms:
 				print("[[ In rooms ]]")
 				print("Room-id-1: ", room.get_room_id(), 
 					" room-id-2: ", room_id)
 				if room.get_room_id() == room_id:
 					print("[[ In rooms 45 ]]")
-					user_id = msg['userid']
 					if all(( room.has_game_started() == False,
 						 room.get_num_of_players_remaining() > 0 )):
 						print("[[ Waiting ]]")
 						prompt_ = 'Waiting for ' + \
 							str(room.get_num_of_players_remaining()) + \
-							' players to join' 
-						msg_ = {
-							'cmd': ClientRcvMessage.ARE_ROOMATES_IN_GAME_REP.value,
-							'payload': {
-								'prompt': prompt_
-							}
-						}
+							' players to join'
+						msg_ = DiscardMessage(cmd=ClientRcvMessage.ARE_ROOMATES_IN_GAME_REP.value,
+							prompt=prompt_)
 						self.reply_on_game_conn(user_id, room_id, msg_)
 					elif all(( room.has_game_started() == False,
 						 room.get_num_of_players_remaining() == 0 )):
 						print("[[ Success ]]")
-						msg_ = {
-							'cmd': ClientRcvMessage.GAME_MESSAGE_REP.value,
-							'payload': {
-								'prompt': ClientRcvMessage.GAME_CAN_BE_STARTED.value
-							}
-						}
+						msg_ = DiscardMessage(cmd=ClientRcvMessage.GAME_MESSAGE_REP.value,
+							prompt=ClientRcvMessage.GAME_CAN_BE_STARTED_REP.value)
 						self.broadcast_game_message(user_id, room_id, msg_)
 						#self.stop_all_roomates_cb(room_id)
 					else:
 						print("[[ Player is trying to see if game has started ]]")
-						msg_ = {
-							'cmd': ClientRcvMessage.GAME_MESSAGE_REP.value,
-							'payload': {
-								'prompt': ClientRcvMessage.GAME_HAS_STARTED.value
-							}
-						}	
+						msg_ = DiscardMessage(cmd=ClientRcvMessage.GAME_MESSAGE_REP.value,
+							prompt=ClientRcvMessage.GAME_HAS_STARTED_REP.value)
 						self.reply_on_game_conn(user_id, room_id, msg_)
 				print("[[ Out of rooms ]]")
 		elif cmd == RoomGameStatus.GAME_MESSAGE:
-			msg_ = {
-				'cmd' : ClientRcvMessage.GAME_MESSAGE_REP
-				'payload': {
-					'prompt': 'Game is in session',
-				}
-			}
-			room_id = msg['roomid']
-			user_id = msg['userid']
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.GAME_MESSAGE_REP.value,
+				prompt='Game is in session')
 			self.reply_on_game_conn(user_id, room_id, msg_)
 
 	def remove_game_conn(self, user_id):
@@ -322,7 +303,7 @@ class Controller(object):
 		for room in self.rooms:
 			for player in room.get_roomates():
 				if player.user_id == user_id:
-					print(player.nickname, " connection has been closed")
+					print(player.nickname, "'s connection has been closed")
 					break
 		self.game_conns = [ game_conn for game_conn in self.game_conns
 					if game_conn.user_id != user_id
@@ -333,6 +314,7 @@ class Controller(object):
 		This checks if there are no more players playing.
 
 		:returns: bool -- True if there are no more players playing. False if otherwise
+		"""
 		return len(self.game_conns) == 0
 
 class RoomHandler(web.RequestHandler):
@@ -353,26 +335,18 @@ class RoomHandler(web.RequestHandler):
 		rep = self.get_query_argument('cmd')
 		cmd = RoomRequest[rep]
 		msg_ = {}
-		if cmd == ServerEnum.GET_ROOMATES:
+		if cmd == RoomRequest.GET_ROOMATES:
 			user_id = self.get_query_argument('userid')
 			room_id = self.get_query_argument('roomid')
 			list_of_roomates = self.controller.get_all_roomates(user_id,
 						room_id)
-			msg_ = {
-				'cmd': ClientRcvMessage.GET_ROOMATES_REP.value,
-				'payload': {
-					'data': list_of_roomates
-				}
-			}
-		elif cmd == ServerEnum.GET_ROOMS:
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_ROOMATES_REP.value,
+				data=list_of_roomates)
+		elif cmd == RoomRequest.GET_ROOMS:
 			list_of_rooms = self.controller.get_all_rooms()
-			msg = {
-				'cmd': ClientRcvMessage.GET_ROOMS_REP.value,
-				'payload': {
-					'data': list_of_rooms
-				} 
-			}
-		self.write(json.dumps(msg_))
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_ROOMS_REP.value,
+				data=list_of_rooms)
+		self.write(DiscardMessage.to_json(msg_))
 
 	def post(self):
 		"""Handles requests concerning a room"""
@@ -389,35 +363,32 @@ class RoomHandler(web.RequestHandler):
 					log_message="Argument num_of_players can't be zero")
 			else:
 				room_id = self.controller.create_room(num_of_players)
-				self.controller.add_player(room_id, user_id, username)
-				msg_ = {
-					'cmd': ClientRcvMessage.CREATE_A_ROOM_REP.value,
-					'payload' : {
-						'data' : room_id
-					}
-				}				
-				self.write(json.dumps(msg_))
-		elif cmd == ServerEnum.JOIN:
+				self.controller.add_player_to_room(room_id, user_id, username)	
+				msg_ = DiscardMessage(cmd=ClientRcvMessage.CREATE_A_ROOM_REP.value,
+					data=room_id)			
+				self.write(DiscardMessage.to_json(msg_))
+		elif cmd == RoomRequest.JOIN_ROOM:
 			room_id = recv_data.get('roomid')
 			if self.controller.can_join(room_id, user_id):
 				self.controller.add_player_to_room(room_id, user_id, username)
-				message['status'] = ClientEnum.JOIN_ROOM_REP.name
-				message['prompt'] = "You have been added to room " + str(room_id)
-				self.write(json.dumps(message))
+				prompt_ = "You have been added to room " + str(room_id)
+				msg_ = DiscardMessage(cmd=ClientRcvMessage.JOIN_ROOM_REP.value,
+					prompt=prompt_)
+				self.write(DiscardMessage.to_json(msg_))
 			else:
 				raise web.HTTPError(status_code=500, 
 					log_message="Room is full")
-		elif cmd == ServerEnum.START_GAME:
+		elif cmd == RoomRequest.START_GAME:
 			room_id = recv_data.get('roomid')
 			if self.controller.can_start_game(room_id, user_id):
 				self.controller.start_game(room_id)
-				message['status'] = ClientEnum.START_GAME_REP.name
-				message['prompt'] = 'Game has started'
+				msg_ = DiscardMessage(cmd=ClientRcvMessage.START_GAME_REP.value,
+					prompt=ClientRcvMessage.GAME_HAS_STARTED_REP.value)
 			else:
-				message['status'] = ClientEnum.START_GAME_REP.name
-				message['prompt'] = 'Game has already started'
-			self.write(json.dumps(message))
-		elif cmd == ServerEnum.LEAVE: 
+				msg_ = DiscardMessage(cmd=ClientRcvMessage.START_GAME_REP.value,
+					prompt=ClientRcvMessage.GAME_HAS_ALREADY_STARTED_REP.value)
+			self.write(DiscardMessage.to_json(msg_))
+		elif cmd == RoomRequest.LEAVE_ROOM: 
 			pass
 		else:
 			pass
@@ -436,10 +407,10 @@ class GameHandler(websocket.WebSocketHandler):
 					,roomId, self)
 		print("Websocket opened. ClientID = %s" % self.clientId)
 		
-	def on_message(self, message):
+	def on_message(self, msg):
 		# called anytime a new message is received
-		print("Received from client ,msg=", message)
-		self.controller.handle_wsmessage(escape.json_decode(message))
+		print("Received from client ,msg=", msg)
+		self.controller.handle_wsmessage(DiscardMessage.to_obj(msg))
 
 	def check_origin(self, origin):
 		return True
