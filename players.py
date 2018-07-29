@@ -38,6 +38,7 @@ class Human(Player):
         self.last_card = False
         self.room_id = None
         self._controller = controller
+        self.__prompt = prompt
 
     def set_deck(self, cards):
         self.hand = cards
@@ -63,8 +64,13 @@ class Human(Player):
     def get_nickname(self):
         return self.nick
 
-    def play(self, message):
-        pass
+    def play(self):
+        choice = None
+        if self.__prompt:
+            choice = self._controller.get_str_input(self.__prompt)
+        else:
+            choice = self._controller.get_str_input('Send a message: ')
+
     
     def __str__(self):
         return 'Player: {}'.format(self.nick)

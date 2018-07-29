@@ -185,8 +185,15 @@ class PlayerController(object):
 		print(response)
 
 	def gen_test_message(self):
-		""" This generates a user-generated message """
-		choice = self.get_str_input('Send a message: ')
+		""" This generates a user-generated message 
+
+		:param question: Question to be asked
+		"""
+		choice = None
+		if self.has_initialised == True:
+			choice = self.player.play()
+		else:
+			choice = self.get_str_input('Send a message: ')
 		if choice == "End":
 			msg_ = {}
 			return json.dumps(msg_)
