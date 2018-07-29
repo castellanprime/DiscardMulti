@@ -2,8 +2,8 @@
 	Class for Room object
 	Each room has one game going through it.
 """
-from serverenums import ServerEnum
-from playerconn import RoomPlayer
+from serverenums import RoomGameStatus
+from utils import RoomPlayer
 from game import Game
 
 class Room(object):
@@ -12,7 +12,7 @@ class Room(object):
 		self.num_of_game_players = 0
 		self.players = []
 		self.game = None
-		self.game_status = ServerEnum.GAME_NOT_STARTED
+		self.game_status = RoomGameStatus.GAME_NOT_STARTED
 
 	def get_num_of_cur_players(self):
 		return len(self.players)
@@ -34,12 +34,12 @@ class Room(object):
 		return self.num_of_game_players == self.get_num_of_cur_players()
 
 	def start_new_game(self):
-		if self.game_status == ServerEnum.GAME_NOT_STARTED:
+		if self.game_status == RoomGameStatus.GAME_NOT_STARTED:
 			self.game = Game(self.players)
-			self.game_status = ServerEnum.GAME_STARTED
+			self.game_status = RoomGameStatus.GAME_HAS_STARTED
 	
 	def has_game_started(self):
-		return self.game_status == ServerEnum.GAME_STARTED
+		return self.game_status == RoomGameStatus.GAME_HAS_STARTED
 
 	def get_roomates(self):
 		return self.players
