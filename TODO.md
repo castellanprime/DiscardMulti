@@ -1,5 +1,5 @@
-Date: July 23, 2018	Bug: 1
-==============================
+Date: July 23, 2018		Bug: 1
+--------------------------------
 
 - Fixed JSON encoding of roomates by replacing roomate object with just the 
 user id
@@ -10,16 +10,16 @@ because the one that saw the roomates list is querying constantly for
 feedback on whether all the members of the game room have joined
 - TODO: To fix above bug.
 
-Date: July 24, 2018	Bug: 2 
-===============================
+Date: July 24, 2018		Bug: 2 
+---------------------------------
 
 - Fixed the above bug. The problem was that subsequent connections from 
 new clients were not being created and added to the list of game connections.
 - BUG: After a new user joins, the server stops sending messages and hangs.
 - TODO: To fix Bug 2
 
-Date: July 25, 2018	Bug 3
-===============================
+Date: July 25, 2018		Bug 3
+----------------------------------
 
 - Fixed the above bug. The problem was that I was not checking for that
 the room should not have started,
@@ -29,13 +29,15 @@ cant send any new messages.
 - TODO: To fix Bug 3
 
 Date: July 27, 2018 	Redesign 1
-==================================
+----------------------------------
 
 - Implement a way to push notifications instead of polling
 during initial connections
 
-Date: July 28, 2018
-========================
+Date: July 28, 2018		Redesign 2
+----------------------------------
 
 - Refactored code
+- Think of different message formats for communication
+(need a data type for incoming game messages)
 
