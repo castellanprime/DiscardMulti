@@ -34,10 +34,40 @@ https://stackoverflow.com/questions/19542333/websocket-server-sending-messages-p
 - General format for messages should be
 
 > - cmd: ServerEnum or ClientEnum
+> - messageid: track messages in the case of resumption
 > - payload: Payload associated with a cmd
 > > - prompt: For display on client
 > > - data: For any integers, lists, etc
+> > - return_type: For sending back the required info to the server from client
+> > > If the return_type is a List and there is a tuple of options in nextCmd, 
+> > > then the client should pick. 
+> > - extra_data: It would normally be the top card from the server to client.
+> > 
 > > - nextCmd: For any other cmd that might be triggered on receiving the message
+
+
+- Yielding from the game loop
+
+> There is going to be two flags, a USER_INPUT_CONTINUE for 
+continues that require some option to be chosen for user to then send
+over cards he/she wants to use, a GAME_CONTINUE flag which denotes
+where the game_loop was paused to go back to after the USER_CONTINUE flag
+has been dropped.
+
+
+> Operation
+
+Server sends a message with GAME_MESSAGE_REP header, PICK_OPTION sub_header.
+If the return type is INT or STR, the server saves the message, user_id, and
+a flag USER_CONTINUE. 
+
+Client receives said message and responds with GAME_MESSAGE header, data as
+its choice, and the  
+
+PICK_OPTION + return_type(INT or STR) -> server accepts and move
+
+PICK_CARDS + no return_type = punishment/error
+PICK_CARDS + return_type(LIST) = pick your own cards
 
 - Scenario A:
 
@@ -58,3 +88,6 @@ the server while user A is still creating it,
 > > 5.  the server then sends a broadcast message to all the players still in th game ,a create_a_computer message message, The server also sends back a leave_rep message to the player that sent the leave cmd.
 > > 6.  the player which have received a leave_rep message closes websocket connection.
 > > 7.  The players that have not been sent the leave cmd are given the option to add a Computer to replace the user that left. If one wants to leave, steps 1 - 7 is followed. If the players choose the Computer, the game is resumed. 
+
+
+- If 
