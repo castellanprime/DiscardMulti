@@ -27,20 +27,40 @@ class RoomPlayer(object):
 
 class DiscardMessage(object):
 	def __init__(self, cmd, prompt=None, 
-			data=None, nextCmd=None):
+			data=None, nextCmd=None,
+			return_type=None, extra_data=None,
+			flag=None):
 		self.cmd = cmd 
 		self.__payload = {}
 		if prompt:
 			self.__payload['prompt'] = prompt 
-		if data:
-			self.__payload['data'] = data 
+		if data:	# for client tom server
+			self.__payload['data'] = data
+		if extra_data:	# for server to client
+			self.__payload['extra_data'] = extra_data
+		if return_type:
+			self.__payload['return_type' = return_type
+		if flag:
+			self.__payload['flag'] = flag 
 		if nextCmd:
 			self.__payload['nextCmd'] = nextCmd
+
+	# intended to replace all the get_* methods
+	def get_payload_value(self, value):
+		for key, value in self.__payload.items():
+			if key == value:
+				return self.__payload[value]
+	
 
 	def get_prompt(self):
 		for key, value in self.__payload.items():
 			if key == 'prompt':
 				return self.__payload['prompt']
+
+	def get_extra_data(self):
+		for key, value in self.__payload.items():
+			if key == 'extra_data':
+				return self.__p
 
 	def get_data(self):
 		for key, value in self.__payload.items():
