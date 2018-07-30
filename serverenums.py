@@ -26,6 +26,13 @@ class RoomGameStatus(MyEnum):
 	ASK_FOR_ROOMATES = 'ASK_FOR_ROOMATES'
 	GAME_NOT_STARTED = 'GAME_NOT_STARTED'
 
+class GameMoveType(MyEnum):
+	PICK_OPTION = 'PICK_OPTION' # pick an option between a set of options
+	PICK_CARDS = 'PICK_CARDS'   
+	DATATYPE_INT = 'DATATYPE_INT'
+	DATATYPE_STR = 'DATATYPE_STR'
+	DATATYPE_CARDS = 'DATATYPE_CARDS'
+
 class ClientRcvMessage(MyEnum):
 	GET_ROOMATES_REP = 'GET_ROOMATES_REP'
 	GET_ROOMS_REP = 'GET_ROOMS_REP'
