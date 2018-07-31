@@ -16,7 +16,7 @@ from tornado import ioloop, websocket, gen
 from model import Model
 from players import Human
 from serverenums import ( ClientRcvMessage, RoomGameStatus,
-		RoomRequest)
+		RoomRequest, MainLoopChoices)
 from utils import DiscardMessage
 
 
@@ -30,6 +30,7 @@ class PlayerController(object):
 		self.room_url = room_url 
 		self.game_url = game_url 
 		self.has_initialised = False 
+		self.has_initial_player_been_choosen = False
 
 	def get_str_input(self, question):
 		"""
@@ -85,8 +86,8 @@ class PlayerController(object):
 		req = requests.post(self.room_url, 
 			json=msg, params=param)
 		response = DiscardMessage.to_obj(req.text)
-		print("Your new room id=", response.get_data())
-		self.player.set_room_id(response.get_data())
+		print("Your new room id=", response.get_payload_value(value='data'))
+		self.player.set_room_id(response.get_payload_value(value='data'))
 
 	def find_room(self):
 		""" 
@@ -100,16 +101,17 @@ class PlayerController(object):
 		req = requests.get(self.room_url, 
 			params=param)
 		rooms = DiscardMessage.to_obj(req.text)
-		if rooms.get_data():
+		if rooms.get_payload_value(value='data'):
 			ls = [str(ind)+') '+ str(value) 
-				for ind, value in enumerate(rooms.get_data())
+				for ind, value in enumerate(
+				rooms.get_payload_value(value='data'))
 			]
 			room_str = '\n'.join(ls)
 			print('The rooms available:', '\n', room_str)
 			choice = self.get_int_input('Choose room to join: ')
 			while choice >= len(ls):
 				choice = self.get_int_input('Choose room to join: ')
-			room_ = rooms.get_data()
+			room_ = rooms.get_payload_value(value='data')
 			room = room_[choice]
 			print(room)
 			
@@ -142,21 +144,38 @@ class PlayerController(object):
 			params=param)
 		response = DiscardMessage.to_obj(req.text)
 		ls = [str(ind)+') '+value for ind,
-				value in enumerate(response.get_data())]
+				value in enumerate(
+				response.get_payload_value(value='data'))]
 		if ls:
 			room_str = '\n'.join(ls)
 			print('My roomates:', '\n', room_str)
 		else:
 			print('You have no roomates yet!!')
 
+	def choose_wait_or_create(self):
+		
+
 	def negotiate(self):
 		""" This finds or creates a room """
 		print('==== Starting game ====')
-
+	
+		question = 'Do you want to wait(w) for a room to come up(Recommended) ' + \
+			'go ahead and create(c) a room?(w/c)?: '
 		success = self.find_room()
 		if success == False:
 			print("Can't find any rooms")
-			self.create_room()
+			while success == False:
+				success = self.find_room()
+				if success:
+					break 
+				choice = self.get_str_input(question)
+				while choice in ['w', 'c'] == False:
+					print('Wrong option')
+					choice = self.get_str_input(question)
+				if choice == 'c':
+					self.create_room()
+					break
+			
 
 	def gen_ping(self):
 		""" 
@@ -191,7 +210,7 @@ class PlayerController(object):
 		"""
 		choice = None
 		if self.has_initialised == True:
-			choice = self.player.play()
+			choice = self.get_ping()
 		else:
 			choice = self.get_str_input('Send a message: ')
 		if choice == "End":
@@ -237,7 +256,36 @@ class PlayerController(object):
 		elif msg.cmd== ClientRcvMessage.ASK_FOR_ROOMATES_REP:
 			self.show_roomates()
 		print("Received game message from server: ", msg)
-		
+	
+	@gen.coroutine
+	def write_wsmessage(self. msg):
+		if isinstance(self.wsconn,
+			websocket.WebsocketConnection):
+			yield self.wsconn.write_message(msg)
+		else:
+			raise RuntimeError('Websocket Connection closed')		
+
+	def choose_initial_player(self):
+		param = { 'cmd': RoomRequest.SET_FIRST_PLAYER.value }
+		msg_ = {
+			'userid': self.player.get_user_id(),
+			'roomid': self.player.get_room_id(),
+			'username': self.player.get_nickname()
+		}
+		rep = request.post(self.room_url, params=param,
+			json=msg_)
+		reponse = DiscardMessage.to_obj(rep)
+		print(response.get_payload_value(value='prompt'), 
+			response.get_payload_value(value='data'))
+		if self.has_initial_player_been_choosen === False:
+			self.has_initial_player_been_choosen = True
+
+	def print_currently_playing(self):
+		param = { 'cmd' : RoomRequest.GET_CURRENT_PLAYER.value }
+		rep = requests.get(self.room_url, params=param)
+		response = DiscardMessage.to_obj(rep)
+		return ( response.get_payload_value(value='prompt'), 
+		response.get_payload_value(value='data'))		
 
 	@gen.coroutine
 	def connect_on_websocket(self):
@@ -254,6 +302,40 @@ class PlayerController(object):
 		else:
 			print("Initial server connection")
 			yield self.communicate_with_websocket()
+
+	# Experimental
+	def menu(self):
+		return 'Menu Options:\n\n' + \ 
+		'Select the option below related to an action.\n\n' + \
+		'h/H/pretty/Pretty - Help and rules in a browser\n' + \
+		'r/R/rules/Rules - Help and rules in your command line\n' + \
+		'p/p/play/Play - Play your turn. Note you have to play to skip' + \
+		'q/Q/quit/Quit - Exit the game\n\n' + \
+		'What is your option: '
+		
+	# Experimental
+	@gen.coroutine
+	def main_loop(self):
+		"""This is the main loop in the game"""
+		choice = None
+		while choice != MainLoopChoices.LEAVE_GAME:
+			prompt, player = self.print_current_playing()
+			print(prompt, player)
+			choice = self.get_enum_choice(
+				self.get_str_input(self.menu())
+			)
+			while choice == None:
+				print('Wrong option')
+				choice = self.get_enum_choice(
+					self.get_str_input(self.menu())
+				)
+			if choice == MainLoopChoices.PRETTY_HELP:
+				pass
+			elif choice == MainLoopChoices.CMD_RULES:
+				pass
+			elif choice == MainLoopChoices.PLAY_ROUND:
+					
+			elif 						
 
 	@gen.coroutine
 	def send_wsmessage(self):
@@ -290,6 +372,24 @@ class PlayerController(object):
 			self.handle_msg(recv_msg)
 			yield self.send_wsmessage()
 		print("IOLoop terminate")
+
+	def get_enum_choice(self, choice):
+		""" 
+		Choices for the main loop. A player is expected to choose
+		from them
+
+		:param choice: The choice to return a MainLoopChoice
+		:returns Enum -- A MainLoopChoice
+		"""
+		if choice in [ 'h', 'h', 'pretty', 'PRETTY']:
+			return MainLoopChoices.PRETTY_HELP
+		elif choice in [ 'r', 'R', 'rules', 'RULES']:
+			return MainLoopChoices.CMD_ROUND
+		elif choice in [ 'p', 'P', 'play', 'PLAY']:
+			return MainLoopChoices.PLAY_ROUND
+		elif choice in [ 'q', 'Q', 'quit', 'QUIT']:
+			return MainLoopChoices.LEAVE_GAME
+		return None
 
 	@gen.coroutine
 	def main(self):
