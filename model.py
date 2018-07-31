@@ -29,6 +29,14 @@ class Model(object):
 	def get_last_played(self):
 		return self.last_played
 
+	def select_cards(self, card_numbers):
+		self.last_played = [self.hand.pop(card_num) 
+			for card_num in card_numbers]
+		return self.last_played 
+	
+	def pick_one(self, card):
+		self.hand.insert(0, card)
+
 	def add_card(self, card):
 		# Adding new card at the bottom of the hand
 		self.hand.append(card)
@@ -36,9 +44,10 @@ class Model(object):
 	def add_cards(self, cards):
 		self.hand.extend(cards)
 
-	def pick_card(self, index):
-		self.last_played.append(self.hand.pop(index))
-		return self.last_played[len(self.last_played) - 1]
+	# Deprecated
+	# def pick_card(self, index):
+	#	self.last_played.append(self.hand.pop(index))
+	#	return self.last_played[len(self.last_played) - 1]
 
 	def save(self):
 		self.__logger.info('Saving current state!!')
