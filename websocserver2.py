@@ -246,6 +246,11 @@ class Controller(object):
 			if game_conn.room_id == room_id:
 				game_conn.stopCallBack()
 
+	def get_current_player(self, roomid):
+		for room in self.rooms:
+			if room.get_room_id() == room_id:
+				return room.get_current_player()
+
 	def handle_wsmessage(self, msg):
 		"""
 		Handles websocket(game) messages
@@ -346,6 +351,11 @@ class RoomHandler(web.RequestHandler):
 			list_of_rooms = self.controller.get_all_rooms()
 			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_ROOMS_REP.value,
 				data=list_of_rooms)
+		elif cmd == RoomRequest.GET_CURRENT_PLAYER:
+			player = self.controller.get_current_player()
+			msg_ = DiscardMessage(cmd=ClientRcvMessge.GET_CURRENT_PLAYER.value, 
+				prompt='Currently playing: ',
+				data=player)
 		self.write(DiscardMessage.to_json(msg_))
 
 	def post(self):
@@ -388,6 +398,18 @@ class RoomHandler(web.RequestHandler):
 				msg_ = DiscardMessage(cmd=ClientRcvMessage.START_GAME_REP.value,
 					prompt=ClientRcvMessage.GAME_HAS_ALREADY_STARTED_REP.value)
 			self.write(DiscardMessage.to_json(msg_))
+		elif cmd == RoomRequest.SET_FIRST_PLAYER:
+			room_id = recv_data.get('roomid')
+			if self.controller.is_there_an_initial_player(room_id) == False:
+				self.controller.set_initial_player(room_id, user_id)
+				msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP,
+					prompt='Player to start:', 
+					data=username)
+			else:
+				msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP.value,
+					prompt="Player to start"',
+					data=self.controller.get_initial_player())
+			self.write(DiscardMessage.to_json(msg_)
 		elif cmd == RoomRequest.LEAVE_ROOM: 
 			pass
 		else:
