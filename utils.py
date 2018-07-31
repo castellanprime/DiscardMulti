@@ -2,6 +2,7 @@
 	Player Connections 
 """
 
+import uuid
 import jsonpickle
 
 class PlayerGameConn(object):
@@ -27,11 +28,12 @@ class RoomPlayer(object):
 
 class DiscardMessage(object):
 	def __init__(self, cmd, prompt=None, 
-			data=None, nextCmd=None,
+			data=None, next_cmd=None,
 			return_type=None, extra_data=None,
-			flag=None):
+			flag=None, msg_id=None):
 		self.cmd = cmd 
 		self.__payload = {}
+		self.msg_id = uuid.uuid4().hex if None
 		if prompt:
 			self.__payload['prompt'] = prompt 
 		if data:	# for client tom server
@@ -42,35 +44,13 @@ class DiscardMessage(object):
 			self.__payload['return_type' = return_type
 		if flag:
 			self.__payload['flag'] = flag 
-		if nextCmd:
-			self.__payload['nextCmd'] = nextCmd
+		if next_cmd:
+			self.__payload['next_cmd'] = next_cmd
 
-	# intended to replace all the get_* methods
 	def get_payload_value(self, value):
 		for key, value in self.__payload.items():
 			if key == value:
 				return self.__payload[value]
-	
-
-	def get_prompt(self):
-		for key, value in self.__payload.items():
-			if key == 'prompt':
-				return self.__payload['prompt']
-
-	def get_extra_data(self):
-		for key, value in self.__payload.items():
-			if key == 'extra_data':
-				return self.__p
-
-	def get_data(self):
-		for key, value in self.__payload.items():
-			if key == 'data':
-				return self.__payload['data']
-
-	def get_next_cmd(self):
-		for key, value in self.__payload.items():
-			if key == 'nextCmd':
-				return self.__payload['nextCmd']
 
 	def __eq__(self, other):
 		if not isinstance(other, DiscardMessage):
