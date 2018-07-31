@@ -36,15 +36,29 @@ https://stackoverflow.com/questions/19542333/websocket-server-sending-messages-p
 > - cmd: ServerEnum or ClientEnum
 > - messageid: track messages in the case of resumption
 > - payload: Payload associated with a cmd
-> > - prompt: For display on client
-> > - data: For any integers, lists, etc
-> > - return_type: For sending back the required info to the server from client
-> > > If the return_type is a List and there is a tuple of options in nextCmd, 
-> > > then the client should pick. 
-> > - extra_data: It would normally be the top card from the server to client.
-> > 
-> > - nextCmd: For any other cmd that might be triggered on receiving the message
-
+> > - `prompt`: For display on client
+> > - `data`: For any integers, lists, etc
+> > > For every communication with the client, the server has send the top
+> > > card. This is where it would reside.
+> > > For every communication with the server, the client has to send its
+> > > response here.
+> > - `return_type`: Used at the client for determing what to send back to
+> > the server
+> > - `flag`: Purpose is described in yielding from game loop
+> > - `next_cmd`: Enums
+> > > For communication to with the client, the server can do these options
+> > > > - If the server is asking for an int, or str answer denoted by the
+> > > > return_type argument, a PICK_OPTION would normally accompany the
+> > > > originating message.
+> > > > - If the server is asking for a list, a PICK_CARDS would normally
+> > > > accompany the originating message and the player would be asked to
+> > > > pick his/her card to play. 
+> > > > - If there is no PICK_CARDS and the server is not asking for a list,
+> > > >  then it means that the player has either made an error
+> > > > ( played the wrong card) or there is a PICK_ONE, PICK_TWO 
+> > > > associated with it, the player would have to pick cards from 
+> > > > the general pile.  
+> > - _extra_data: For cards for PICK_TWO, PICK_ONE, options
 
 - Yielding from the game loop
 
