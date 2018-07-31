@@ -24,6 +24,9 @@ class Room(object):
 	#def make_player_ready(self):
 	#	self.players_pending = self.players_pending - 1
 
+	def get_current_player(self):
+		return self.game.get_current_player()
+
 	def set_num_of_game_players(self, num):
 		self.num_of_game_players = num
 
