@@ -65,24 +65,25 @@ class PlayerController(object):
 	def create_new_user(self):
 		"""	This creates a new Human user """
 		user_id = uuid.uuid4().hex 
-		self.player = Human(user_id, self, self.model)
-
 		question = 'What is your username?: '
 		username = self.get_str_input(question)
-		self.player.set_nickname(username)
+		self.player = Human(user_id, self, self.model, username)
 
 	def create_room(self):
 		""" This creates a room	"""
 		print("=== Creating a room ===")
 		self.create_new_user()
-		question = 'How many players do you want to play with:'
+		question = "What is the room's name? "
+		room_name = self.get_str_input(question)
+		question = 'How many players do you want to play with: '
 		num_of_players = self.get_int_input(question)	
 		while num_of_players == 0:
 			num_of_players = self.get_int_input(question)
 
 		msg = {'username': self.player.get_nickname(), \
 		 	'userid': self.player.get_user_id(), \
-			'num_of_players':num_of_players}
+			'num_of_players': num_of_players,
+			'room_name': room_name}
 		param = {'cmd': RoomRequest.CREATE_A_ROOM.value}
 		req = requests.post(self.room_url, 
 			json=msg, params=param)
@@ -90,22 +91,47 @@ class PlayerController(object):
 		print("Your new room id=", response.get_payload_value(value='data'))
 		self.player.set_room_id(response.get_payload_value(value='data'))
 
+	def join_room(self, room=None):
+		"""
+		This adds current player to room
+
+		:param room: Room to join
+		"""
+		print('=== Joining room ===')
+		self.create_new_user()
+		self.player.set_room_id(room['roomid'])
+		print('You selected: ', self.player.get_room_id())
+		param = { 'cmd': RoomRequest.JOIN_ROOM.value }
+		msg = {
+			'username': self.player.get_nickname(),
+			'userid': self.player.get_user_id(),
+			'roomid': room['roomid']
+		}
+		req = requests.post(self.room_url, 
+			json=msg, params=param)
+		response = DiscardMessage.to_obj(req.text)
+		print(response)
+		
+
 	def find_room(self):
 		""" 
-		This find rooms 
+		This finds rooms 
 
 		:returns: bool -- True if rooms has been found. False if otherwise
 		"""
 		print('==== Getting rooms to play the game ====')	
-		return_value = False
 		param = {'cmd': RoomRequest.GET_ROOMS.value}
 		req = requests.get(self.room_url, 
 			params=param)
 		rooms = DiscardMessage.to_obj(req.text)
 		if rooms.get_payload_value(value='data'):
-			ls = [str(ind)+') '+ str(value) 
-				for ind, value in enumerate(
-				rooms.get_payload_value(value='data'))
+			ls = [{key: value 
+				for key, value in value.items()
+				if key != 'roomid'
+			} 
+			for value in rooms.get_payload_value(value='data')]
+			ls[:] = [str(ind)+') '+ repr(value)
+				for ind, value in enumerate(ls)
 			]
 			room_str = '\n'.join(ls)
 			print('The rooms available:', '\n', room_str)
@@ -114,25 +140,9 @@ class PlayerController(object):
 				choice = self.get_int_input('Choose room to join: ')
 			room_ = rooms.get_payload_value(value='data')
 			room = room_[choice]
-			print(room)
-			
-			self.create_new_user()
-
-			self.player.set_room_id(room['roomid'])
-			print('You selected: ', self.player.get_room_id())
-			
-			param = { 'cmd': RoomRequest.JOIN_ROOM.value }
-			msg = {
-				'username': self.player.get_nickname(), 
-				'userid':self.player.get_user_id(), 
-				'roomid': room['roomid']
-			}
-			req = requests.post(self.room_url, 
-				json=msg, params=param)
-			response = DiscardMessage.to_obj(req.text)
-			print(response)
-			return_value = True 
-		return return_value 
+			return room
+		print("Can't find rooms. You can try to find rooms again(Recommended) or create a room.") 
+		return None 
 
 	def show_roomates(self):
 		""" This shows roomates """
@@ -154,28 +164,39 @@ class PlayerController(object):
 			print('You have no roomates yet!!')
 
 	def choose_wait_or_create(self):
-		question = 'Do you want to wait(w) for a room to come up(Recommended) ' + \
-			'go ahead and create(c) a room?(w/c)?: '
+		question = 'Do you still want to create a room' + \
+			'(y/n)? '
 		choice = self.get_str_input(question)
-		while choice in ['w', 'c'] == False:
+		while choice in ['y', 'n'] == False:
 			print('Wrong option')
 			choice = self.get_str_input(question)
 		return choice
+
+	def initial_menu(self):
+		return '\n'.join(['\nChoose from these options: ',
+			'j) Join an existing room(Recommended) ',
+			'c) Create a room',
+			'e) Exit \n',
+			'Select option: '
+		])
 
 	def negotiate(self):
 		""" This finds or creates a room """
 		print('==== Starting game ====')
 
-		success = self.find_room()
-		if success == False:
-			print("Can't find any rooms")
-			while success == False:
-				success = self.find_room()
-				if success:
-					break 
-				choice = self.choose_wait_or_create()
-				if choice == 'c':
-					choice = self.choose_wait_or_create()
+		while True:
+			choice = self.get_str_input(self.initial_menu())
+			while choice in ['j', 'c'] == False:
+				print('Wrong option')
+				choice = self.get_str_input(self.initial_menu())
+			if choice == 'j':
+				room = self.find_room()
+				if room:
+					self.join_room(room)
+					break
+			elif choice == 'c':
+				choice_ = self.choose_wait_or_create()
+				if choice_ == 'y':
 					self.create_room()
 					break
 			
@@ -249,14 +270,14 @@ class PlayerController(object):
 		print("[[ In handle_msg ]]")
 		msg = DiscardMessage.to_obj(message)
 		if all(( msg.cmd == ClientRcvMessage.GAME_MESSAGE_REP.value,
-			msg.get_prompt() == ClientRcvMessage.GAME_CAN_BE_STARTED_REP.value )):
+			msg.get_payload_value(value='prompt') == ClientRcvMessage.GAME_CAN_BE_STARTED_REP.value )):
 			print("[[ Starting game ]]")
 			if self.has_initialised == False:
 				self.has_initialised = True
 				self.start_game()
 				self.choose_initial_player()
 		elif all(( msg.cmd == ClientRcvMessage.GAME_MESSAGE_REP.value,
-			msg.get_prompt() == ClientRcvMessage.GAME_HAS_STARTED_REP.value )):
+			msg.get_payload_value(value='prompt') == ClientRcvMessage.GAME_HAS_STARTED_REP.value )):
 			print("[[ Joining stared game ]]")
 			if self.has_initialised == False:
 				self.has_initialised = True
