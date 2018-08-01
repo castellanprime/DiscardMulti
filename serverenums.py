@@ -27,6 +27,7 @@ class RoomGameStatus(MyEnum):
 	GAME_HAS_STARTED = 'GAME_HAS_STARTED'
 	ASK_FOR_ROOMATES = 'ASK_FOR_ROOMATES'
 	GAME_NOT_STARTED = 'GAME_NOT_STARTED'
+	DOCUMENTATION = 'DOCUMENTATION'
 
 class GameMoveType(MyEnum):
 	PICK_OPTION = 'PICK_OPTION' # pick an option between a set of options

@@ -313,6 +313,11 @@ class Controller(object):
 		self.game_conns = [ game_conn for game_conn in self.game_conns
 					if game_conn.user_id != user_id
 				]
+
+	def is_there_an_initial_player(self, room_id):
+		for room in self.rooms:
+			if room.get_room_id() == room_id:
+				return room.is_there_an_initial_player()
 	
 	def shutdown(self):
 		"""
@@ -353,7 +358,7 @@ class RoomHandler(web.RequestHandler):
 				data=list_of_rooms)
 		elif cmd == RoomRequest.GET_CURRENT_PLAYER:
 			player = self.controller.get_current_player()
-			msg_ = DiscardMessage(cmd=ClientRcvMessge.GET_CURRENT_PLAYER.value, 
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_CURRENT_PLAYER.value, 
 				prompt='Currently playing: ',
 				data=player)
 		self.write(DiscardMessage.to_json(msg_))
@@ -407,13 +412,17 @@ class RoomHandler(web.RequestHandler):
 					data=username)
 			else:
 				msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP.value,
-					prompt="Player to start"',
+					prompt='Player to start',
 					data=self.controller.get_initial_player())
-			self.write(DiscardMessage.to_json(msg_)
+			self.write(DiscardMessage.to_json(msg_))
 		elif cmd == RoomRequest.LEAVE_ROOM: 
 			pass
 		else:
 			pass
+
+class DocumentationHandler(web.RequestHandler):
+		def get(self):
+			self.render('rules.html')
 
 class GameHandler(websocket.WebSocketHandler):
 	""" This handles connections relating to the game"""
@@ -448,7 +457,8 @@ class Server(web.Application):
 		controller = Controller()
 		handlers = [
 			(r"/room", RoomHandler, {'controller': controller}),
-			(r"/game", GameHandler, {'controller': controller})
+			(r"/game", GameHandler, {'controller': controller}),
+			(r"/doc", DocumentationHandler)
 		]
 		web.Application.__init__(self, handlers)
 
