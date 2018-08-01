@@ -54,15 +54,16 @@ class Controller(object):
 		self.rooms = []		# list of Rooms
 		self.game_conns = []	# list of PlayerGameConns	
 
-	def create_room(self, num_of_players):
+	def create_room(self, num_of_players, room_name):
 		""" 
 		This creates a room and adds to the list of rooms. 
  
 		:param num_of_players: Number of players allowed for the game in the room 		
+		:param room_name: Name of the room
 		:returns: str -- the room_id 
 		"""
 		room_id = uuid.uuid4().hex
-		room = Room(room_id)
+		room = Room(room_id, room_name)
 		room.set_num_of_game_players(num_of_players)
 		self.rooms.append(room)
 		return room_id
@@ -78,7 +79,8 @@ class Controller(object):
 		if len(self.rooms) > 0:
 			for room in self.rooms:
 				rooms.append(
-					{ 
+					{
+						'room_name': room.get_name(), 
 						'roomid': room.get_room_id(),
 						'num_of_cur_players': room.get_num_of_cur_players(), 
 						'num_of_players_remaining' : room.get_num_of_players_remaining()
@@ -246,7 +248,7 @@ class Controller(object):
 			if game_conn.room_id == room_id:
 				game_conn.stopCallBack()
 
-	def get_current_player(self, roomid):
+	def get_current_player(self, room_id):
 		for room in self.rooms:
 			if room.get_room_id() == room_id:
 				return room.get_current_player()
@@ -261,7 +263,7 @@ class Controller(object):
 		cmd = RoomGameStatus[msg.cmd]
 		msg_ = {}
 		prompt_ = ""
-		data = msg.get_data()
+		data = msg.get_payload_value(value='data')
 		room_id = data['roomid']
 		user_id = data['userid']
 		if cmd == RoomGameStatus.ARE_ROOMATES_IN_GAME:
@@ -318,6 +320,19 @@ class Controller(object):
 		for room in self.rooms:
 			if room.get_room_id() == room_id:
 				return room.is_there_an_initial_player()
+
+	def set_initial_player(self, user_id, room_id):
+		for room in self.rooms:
+			if room.get_room_id() == room_id:
+				player = [ player for player in room.get_roomates() 
+					if player.user_id == user_id]
+				room.set_initial_player(player[0])
+
+	def get_initial_player(self, room_id):
+		for room in self.rooms:
+			if room.get_room_id() == room_id:
+				return room.get_initial_player()
+				
 	
 	def shutdown(self):
 		"""
@@ -360,7 +375,7 @@ class RoomHandler(web.RequestHandler):
 			player = self.controller.get_current_player()
 			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_CURRENT_PLAYER.value, 
 				prompt='Currently playing: ',
-				data=player)
+				data=player.username)
 		self.write(DiscardMessage.to_json(msg_))
 
 	def post(self):
@@ -373,12 +388,15 @@ class RoomHandler(web.RequestHandler):
 		msg_ = {}
 		if cmd == RoomRequest.CREATE_A_ROOM:
 			num_of_players = recv_data.get('num_of_players')
-			if num_of_players == 0:
+			room_name = recv_data.get('room_name')
+			print('Num of players: ', num_of_players)
+			if any(( num_of_players < 2 , num_of_players > 8 )):
 				raise web.HTTPError(status_code=400, 
-					log_message="Argument num_of_players can't be zero")
+					log_message="Argument num_of_players must be between 2 and 8")
 			else:
-				room_id = self.controller.create_room(num_of_players)
+				room_id = self.controller.create_room(num_of_players, room_name)
 				self.controller.add_player_to_room(room_id, user_id, username)	
+				print('Room id: ', room_id)
 				msg_ = DiscardMessage(cmd=ClientRcvMessage.CREATE_A_ROOM_REP.value,
 					data=room_id)			
 				self.write(DiscardMessage.to_json(msg_))
@@ -412,8 +430,8 @@ class RoomHandler(web.RequestHandler):
 					data=username)
 			else:
 				msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP.value,
-					prompt='Player to start',
-					data=self.controller.get_initial_player())
+					prompt='Player to start:',
+					data=self.controller.get_initial_player(room_id).username)
 			self.write(DiscardMessage.to_json(msg_))
 		elif cmd == RoomRequest.LEAVE_ROOM: 
 			pass
