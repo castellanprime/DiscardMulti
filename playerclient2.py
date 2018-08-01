@@ -22,13 +22,14 @@ from utils import DiscardMessage
 
 class PlayerController(object):
 
-	def __init__(self, room_url, game_url):
+	def __init__(self, room_url, game_url, doc_url):
 		self.wsconn = None
 		self.player = None
 		self.model = Model()
 		self.wsconn_close = False
 		self.room_url = room_url 
 		self.game_url = game_url 
+		self.doc_url = doc_url
 		self.has_initialised = False 
 		self.has_initial_player_been_choosen = False
 
@@ -153,14 +154,18 @@ class PlayerController(object):
 			print('You have no roomates yet!!')
 
 	def choose_wait_or_create(self):
-		
+		question = 'Do you want to wait(w) for a room to come up(Recommended) ' + \
+			'go ahead and create(c) a room?(w/c)?: '
+		choice = self.get_str_input(question)
+		while choice in ['w', 'c'] == False:
+			print('Wrong option')
+			choice = self.get_str_input(question)
+		return choice
 
 	def negotiate(self):
 		""" This finds or creates a room """
 		print('==== Starting game ====')
-	
-		question = 'Do you want to wait(w) for a room to come up(Recommended) ' + \
-			'go ahead and create(c) a room?(w/c)?: '
+
 		success = self.find_room()
 		if success == False:
 			print("Can't find any rooms")
@@ -168,11 +173,9 @@ class PlayerController(object):
 				success = self.find_room()
 				if success:
 					break 
-				choice = self.get_str_input(question)
-				while choice in ['w', 'c'] == False:
-					print('Wrong option')
-					choice = self.get_str_input(question)
+				choice = self.choose_wait_or_create()
 				if choice == 'c':
+					choice = self.choose_wait_or_create()
 					self.create_room()
 					break
 			
@@ -233,7 +236,10 @@ class PlayerController(object):
 		if self.has_initialised == False:
 			msg = self.gen_ping()
 		else:
-			msg = self.gen_test_message()
+			if self.has_initial_player_been_choosen == False:
+				msg = self.gen_test_message()
+			else:
+				msg = self.main_loop()
 			if msg == json.dumps({}):
 				return None 
 		return msg
@@ -248,23 +254,19 @@ class PlayerController(object):
 			if self.has_initialised == False:
 				self.has_initialised = True
 				self.start_game()
+				self.choose_initial_player()
 		elif all(( msg.cmd == ClientRcvMessage.GAME_MESSAGE_REP.value,
 			msg.get_prompt() == ClientRcvMessage.GAME_HAS_STARTED_REP.value )):
 			print("[[ Joining stared game ]]")
 			if self.has_initialised == False:
 				self.has_initialised = True
+				self.choose_initial_player()
 		elif msg.cmd== ClientRcvMessage.ASK_FOR_ROOMATES_REP:
 			self.show_roomates()
 		print("Received game message from server: ", msg)
+		if self.has_initial_player_been_choosen == True:
+			self.player.set_message_to_process(msg)
 	
-	@gen.coroutine
-	def write_wsmessage(self. msg):
-		if isinstance(self.wsconn,
-			websocket.WebsocketConnection):
-			yield self.wsconn.write_message(msg)
-		else:
-			raise RuntimeError('Websocket Connection closed')		
-
 	def choose_initial_player(self):
 		param = { 'cmd': RoomRequest.SET_FIRST_PLAYER.value }
 		msg_ = {
@@ -272,12 +274,12 @@ class PlayerController(object):
 			'roomid': self.player.get_room_id(),
 			'username': self.player.get_nickname()
 		}
-		rep = request.post(self.room_url, params=param,
+		rep = requests.post(self.room_url, params=param,
 			json=msg_)
-		reponse = DiscardMessage.to_obj(rep)
+		response = DiscardMessage.to_obj(rep)
 		print(response.get_payload_value(value='prompt'), 
 			response.get_payload_value(value='data'))
-		if self.has_initial_player_been_choosen === False:
+		if self.has_initial_player_been_choosen == False:
 			self.has_initial_player_been_choosen = True
 
 	def print_currently_playing(self):
@@ -305,7 +307,7 @@ class PlayerController(object):
 
 	# Experimental
 	def menu(self):
-		return 'Menu Options:\n\n' + \ 
+		return 'Menu Options:\n\n' + \
 		'Select the option below related to an action.\n\n' + \
 		'h/H/pretty/Pretty - Help and rules in a browser\n' + \
 		'r/R/rules/Rules - Help and rules in your command line\n' + \
@@ -314,28 +316,30 @@ class PlayerController(object):
 		'What is your option: '
 		
 	# Experimental
-	@gen.coroutine
 	def main_loop(self):
 		"""This is the main loop in the game"""
 		choice = None
-		while choice != MainLoopChoices.LEAVE_GAME:
-			prompt, player = self.print_current_playing()
-			print(prompt, player)
+		msg_ = {}
+		prompt, player = self.print_currently_playing()
+		print(prompt, player)
+		choice = self.get_enum_choice(
+			self.get_str_input(self.menu())
+		)
+		while choice == None:
+			print('Wrong option')
 			choice = self.get_enum_choice(
 				self.get_str_input(self.menu())
 			)
-			while choice == None:
-				print('Wrong option')
-				choice = self.get_enum_choice(
-					self.get_str_input(self.menu())
-				)
-			if choice == MainLoopChoices.PRETTY_HELP:
-				pass
-			elif choice == MainLoopChoices.CMD_RULES:
-				pass
-			elif choice == MainLoopChoices.PLAY_ROUND:
-					
-			elif 						
+		if choice == MainLoopChoices.PRETTY_HELP:
+			#req = requests.get(self.doc_url)
+			msg_ = DiscardMessage(cmd='DOCUMENTATION')
+		elif choice == MainLoopChoices.CMD_RULES:
+			msg_ = DiscardMessage(cmd='DOCUMENTATION')
+		elif choice == MainLoopChoices.PLAY_ROUND:
+			msg_ = self.player.play()		
+		elif choice == MainLoopChoices.LEAVE_GAME:
+			msg_ = DiscardMessage(cmd='DOCUMENTATION')
+		return msg_						
 
 	@gen.coroutine
 	def send_wsmessage(self):
@@ -400,8 +404,10 @@ class PlayerController(object):
 
 if __name__ == "__main__":
 	try:
-		client = PlayerController("http://localhost:8888/room", 
-			"ws://localhost:8888/game")
+		client = PlayerController(
+			"http://localhost:8888/room", 
+			"ws://localhost:8888/game",
+			"http://localhost:8888.doc")
 		ioloop.IOLoop.instance().add_callback(client.main)
 		ioloop.IOLoop.instance().start()
 	except (SystemExit, KeyboardInterrupt):
