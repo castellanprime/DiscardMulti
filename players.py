@@ -2,7 +2,7 @@
 	The module is for the Player object
 """
 
-from utils import GameMoveType
+from serverenums import GameMoveType
 
 class Player(object):
     def __init__(self, user_id):
@@ -34,13 +34,14 @@ class Computer(Player):
         pass
 
 class Human(Player):
-    def __init__(self, user_id, controller, model):
+    def __init__(self, user_id, controller, model, nick):
         super().__init__(user_id)
         self.model = model
         self.last_card = False
         self.room_id = None
+        self.nick = nick
         self._controller = controller
-        self.__message = None
+        self.__message_to_process = None
 
     def set_deck(self, cards):
         self.hand = cards
@@ -106,15 +107,6 @@ class Human(Player):
            
 
     def play(self):
-	    """
-	    Messages to process
-	    cmd: GAME_MESSAGE
-	    data:
-            prompt: question asked
-            return_type: GameMoveType.DATATYPE
-            extra_data: It would normally be the top card
-		nextCmd: Can be used for validation of options	
-	    """
         choice = None
         msg_ = {}
         if self.__message_to_process:
@@ -145,7 +137,7 @@ class Human(Player):
                 )
             elif ( self.__message_to_process.get_payload_value(
                    value='next_cmd') in [ GameMoveType.PICK_ONE.value, 
-                     , GameMoveType.PICK_TWO.value ]):
+                     GameMoveType.PICK_TWO.value ]):
                    # it is a punishment or an error   
                 self.__punish(prompt)
                 return msg
