@@ -7,12 +7,16 @@ from utils import RoomPlayer
 from game import Game
 
 class Room(object):
-	def __init__(self, room_id):
+	def __init__(self, room_id, room_name):
 		self.room_id = room_id
+		self.room_name = room_name
 		self.num_of_game_players = 0
 		self.players = []
 		self.game = None
 		self.game_status = RoomGameStatus.GAME_NOT_STARTED
+
+	def get_name(self):
+		return self.room_name
 
 	def get_num_of_cur_players(self):
 		return len(self.players)
@@ -31,7 +35,13 @@ class Room(object):
 		self.num_of_game_players = num
 
 	def is_there_an_initial_player(self):
-		return self.game.is_there_an_initial_player()
+		return self.get_initial_player() == None
+
+	def set_initial_player(self, player):
+		self.game.set_initial_player(player)
+
+	def get_initial_player(self):
+		return self.game.get_initial_player()
 
 	def is_not_full(self):
 		return self.num_of_game_players > self.get_num_of_cur_players()
