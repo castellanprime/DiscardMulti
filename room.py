@@ -30,6 +30,9 @@ class Room(object):
 	def set_num_of_game_players(self, num):
 		self.num_of_game_players = num
 
+	def is_there_an_initial_player(self):
+		return self.game.is_there_an_initial_player()
+
 	def is_not_full(self):
 		return self.num_of_game_players > self.get_num_of_cur_players()
 	
