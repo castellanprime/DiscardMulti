@@ -42,9 +42,28 @@ Date: July 28, 2018	Redesign 2
 (need a data type for incoming game messages)
 
 
-Date July 30, 2018	Redesign 3
+Date: July 30, 2018	Redesign 3
 ----------------------------------
 
 - Think of a way to yield from the game loop without breaking 
 the loop( that is every where you have an input, replace that 
 with a sort of "yield")
+
+Date: August 1, 2018	Redesign 4
+-----------------------------------
+
+- Add a server for authorization and authentication and 
+remove any authorization and authentication from the game 
+server
+- Figure how to connect pyzmq/tornado in the client, 
+and websockets in the server(research)
+- A possible architecture: 
+
+> kivy/pyzmq(UI) - this should represented by the Player class
+> netclient - this should be represented by the PlayerController class
+> auth_server - this should be a Flask Server. Connected to the 
+game_server with websockets. 
+> game_server - this should be represented by the ServerController.
+It also houses the chat server.
+
+- Extract method for choosing options from a defined list of options
