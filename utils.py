@@ -26,6 +26,24 @@ class RoomPlayer(object):
 		self.nickname = nickname
 		self.user_id = user_id
 
+	def __eq__(self, other):
+		if not isinstance(other, RoomPlayer):
+			return False
+
+		return all(( self.nickname == other.nickname,
+			self.user_id == other.user_id ))
+
+	def __ne__(self, other):
+		return not self == other
+
+	def __hash__(self):
+		return hash(( self.nickname, self.user_id )) 
+
+	def __str__(self):
+		return 'username={0}, userid={1}'.format(
+			self.username, self.user_id
+		)
+
 class DiscardMessage(object):
 	def __init__(self, cmd, prompt=None, 
 			data=None, next_cmd=None,
@@ -33,7 +51,7 @@ class DiscardMessage(object):
 			flag=None, msg_id=None):
 		self.cmd = cmd 
 		self.__payload = {}
-		self.msg_id = uuid.uuid4().hex if None
+		self.msg_id = msg_id if msg_id else uuid.uuid4().hex
 		if prompt:
 			self.__payload['prompt'] = prompt 
 		if data:	# for client tom server
@@ -41,14 +59,14 @@ class DiscardMessage(object):
 		if extra_data:	# for server to client
 			self.__payload['extra_data'] = extra_data
 		if return_type:
-			self.__payload['return_type' = return_type
+			self.__payload['return_type'] = return_type
 		if flag:
 			self.__payload['flag'] = flag 
 		if next_cmd:
 			self.__payload['next_cmd'] = next_cmd
 
 	def get_payload_value(self, value):
-		for key, value in self.__payload.items():
+		for key in self.__payload.keys():
 			if key == value:
 				return self.__payload[value]
 
