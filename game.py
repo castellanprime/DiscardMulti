@@ -8,7 +8,11 @@ class Game(object):
 		self.model = ServerModel(players)
 
 	def get_current_player(self):
-		return None
+		return self.model.get_current_player()
 
-	def is_there_an_initial_player(self):
-		return self.model.get_initial_player() == None
+	def get_initial_player(self):
+		return self.model.get_initial_player()
+
+	def set_initial_player(self, player):
+		self.model.set_initial_player(player)
+		self.model.set_current_player(player)
