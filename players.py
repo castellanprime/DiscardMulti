@@ -78,20 +78,20 @@ class Human(Player):
                 value='extra_data')):
                 print('Wrong option')
                 choice = self._controller.get_str_input(prompt)
-         elif (self._message_to_process.get_payload_value(
-             value='return_type') == GameMoveType.DATATYPE_INT.value):
-             choice = self._controller.get_int_input(prompt)
-             while ( choice not in self.__message_to_process.get_payload_value(
-                 value='extra_data')):
-                 print('Wrong option')
-                 choice = self._controller.get_int_input(prompt)
-         return DiscardMessage(
-             cmd=RoomGameStatus.GAME_MESSAGE.value,
-             data=choice,
-             return_type=self.__message.get_payload_value(value='return_type'),
-             flag=self.__message_to_process.get_payload_value(value='flag'),
-             msg_id=self.__message_to_process.msg_id
-         )
+        elif (self._message_to_process.get_payload_value(
+            value='return_type') == GameMoveType.DATATYPE_INT.value):
+            choice = self._controller.get_int_input(prompt)
+            while ( choice not in self.__message_to_process.get_payload_value(
+                value='extra_data')):
+                print('Wrong option')
+                choice = self._controller.get_int_input(prompt)
+        return DiscardMessage(
+            cmd=RoomGameStatus.GAME_MESSAGE.value,
+            data=choice,
+            return_type=self.__message.get_payload_value(value='return_type'),
+            flag=self.__message_to_process.get_payload_value(value='flag'),
+            msg_id=self.__message_to_process.msg_id
+        )
 
     def __punish(self, prompt):
         print(prompt)
@@ -106,15 +106,15 @@ class Human(Player):
            
 
     def play(self):
-	"""
+	    """
 	    Messages to process
 	    cmd: GAME_MESSAGE
 	    data:
-	        prompt: question asked
-	        return_type: GameMoveType.DATATYPE
-	        extra_data: It would normally be the top card
+            prompt: question asked
+            return_type: GameMoveType.DATATYPE
+            extra_data: It would normally be the top card
 		nextCmd: Can be used for validation of options	
-	"""
+	    """
         choice = None
         msg_ = {}
         if self.__message_to_process:
@@ -134,12 +134,12 @@ class Human(Player):
                  value='next_cmd') == GameMoveType.PICK_CARDS.value )):
                 print('My hand: ')
                 print('\n'.join([ str(ind) + ') ' + value 
-                  for ind, value in enumerate(self.model.get_hand())])
+                  for ind, value in enumerate(self.model.get_hand())]))
                 choice = self._controller.get_int_input(prompt)
                 cards = self.model.select_cards([choice])
                 msg_ = DiscardMessage(
-                    cmd=RoomGameStatus.GAME_MESSAGE.value.
-                    data=cards
+                    cmd=RoomGameStatus.GAME_MESSAGE.value,
+                    data=cards,
                     flag=self.__message_to_process.get_payload_value(value='flag'),
                     msg_id=self.__message_to_process.msg_id
                 )
@@ -148,8 +148,8 @@ class Human(Player):
                      , GameMoveType.PICK_TWO.value ]):
                    # it is a punishment or an error   
                 self.__punish(prompt)
-        else:
-            print("Do nothing"
+                return msg
+        print("Do nothing")
 
     
     def __str__(self):
