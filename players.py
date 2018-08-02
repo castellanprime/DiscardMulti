@@ -2,7 +2,8 @@
 	The module is for the Player object
 """
 
-from serverenums import GameMoveType
+from serverenums import GameMoveType, RoomGameStatus
+from utils import DiscardMessage
 
 class Player(object):
     def __init__(self, user_id):
@@ -50,7 +51,7 @@ class Human(Player):
         self.room_id = room_id
 
     def set_message_to_process(self, msg):
-        self.__mesage_to_process = msg 
+        self.__message_to_process = msg 
 
     def get_room_id(self):
         return self.room_id
@@ -89,6 +90,8 @@ class Human(Player):
         return DiscardMessage(
             cmd=RoomGameStatus.GAME_MESSAGE.value,
             data=choice,
+            room_id=self.get_room_id(),
+            user_id=self.get_user_id(),
             return_type=self.__message.get_payload_value(value='return_type'),
             flag=self.__message_to_process.get_payload_value(value='flag'),
             msg_id=self.__message_to_process.msg_id
@@ -121,7 +124,7 @@ class Human(Player):
                     value='next_cmd') == GameMoveType.PICK_OPTION.value)):
                 msg_ = self.__get_pick_option(prompt)
             elif all((self.__message_to_process.get_payload_value(
-                value='return_type') == GameMoveType.DATATYPE_LIST.value,
+                value='return_type') == GameMoveType.DATATYPE_CARDS.value,
                 self.__message_to_process.get_payload_value(
                  value='next_cmd') == GameMoveType.PICK_CARDS.value )):
                 print('My hand: ')
@@ -132,6 +135,8 @@ class Human(Player):
                 msg_ = DiscardMessage(
                     cmd=RoomGameStatus.GAME_MESSAGE.value,
                     data=cards,
+                    room_id=self.get_room_id(),
+                    user_id=self.get_user_id(),
                     flag=self.__message_to_process.get_payload_value(value='flag'),
                     msg_id=self.__message_to_process.msg_id
                 )
@@ -141,7 +146,15 @@ class Human(Player):
                    # it is a punishment or an error   
                 self.__punish(prompt)
                 return msg
-        print("Do nothing")
+            else:
+                msg_ = DiscardMessage(cmd=RoomGameStatus.GAME_MESSAGE.value,
+                    data='[Test] I sent a game move',
+                    room_id=self.get_room_id(),
+                    user_id=self.get_user_id()
+                )
+            return msg_
+        else:
+            print("Do nothing")
 
     
     def __str__(self):

@@ -56,7 +56,8 @@ class DiscardMessage(object):
 	def __init__(self, cmd, prompt=None, 
 			data=None, next_cmd=None,
 			return_type=None, extra_data=None,
-			flag=None, msg_id=None):
+			flag=None, msg_id=None,
+			user_id=None, room_id=None):
 		self.cmd = cmd 
 		self.__payload = {}
 		self.msg_id = msg_id if msg_id else uuid.uuid4().hex
@@ -72,6 +73,10 @@ class DiscardMessage(object):
 			self.__payload['flag'] = flag 
 		if next_cmd:
 			self.__payload['next_cmd'] = next_cmd
+		if room_id:
+			self.__payload['room_id'] = room_id
+		if user_id:
+			self.__payload['user_id'] = user_id
 
 	def get_payload_value(self, value):
 		for key in self.__payload.keys():

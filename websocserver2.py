@@ -136,8 +136,8 @@ class Controller(object):
 		:param user_id: Player identifier
 		:param room_id: Room identifier
 		:returns: list -- all the roomates of a particular Player
-		roomates = []
 		"""
+		roomates = []
 		for room in self.rooms:
 			if all((room.get_room_id() == room_id, 
 				room.is_player_in_room(user_id) == True )):
@@ -263,9 +263,8 @@ class Controller(object):
 		cmd = RoomGameStatus[msg.cmd]
 		msg_ = {}
 		prompt_ = ""
-		data = msg.get_payload_value(value='data')
-		room_id = data['roomid']
-		user_id = data['userid']
+		room_id = msg.get_payload_value(value='room_id')
+		user_id = msg.get_payload_value(value='user_id')
 		if cmd == RoomGameStatus.ARE_ROOMATES_IN_GAME:
 			for room in self.rooms:
 				print("[[ In rooms ]]")
@@ -319,9 +318,8 @@ class Controller(object):
 	def set_initial_player(self, user_id, room_id):
 		for room in self.rooms:
 			if room.get_room_id() == room_id:
-				for player in room.get_roomates():
+				for player in self.get_all_roomates(user_id, room_id):
 					if player.user_id == user_id:
-						print("Player selected: ", player)
 						room.set_initial_player(player)
 						break
 
@@ -329,7 +327,6 @@ class Controller(object):
 		for room in self.rooms:
 			if room.get_room_id() == room_id:
 				return room.get_initial_player()
-				
 	
 	def shutdown(self):
 		"""
@@ -422,8 +419,7 @@ class RoomHandler(web.RequestHandler):
 			self.write(DiscardMessage.to_json(msg_))
 		elif cmd == RoomRequest.SET_FIRST_PLAYER:
 			room_id = recv_data.get('roomid')
-			self.controller.set_initial_player(room_id, user_id)
-			print('You should not be there')
+			self.controller.set_initial_player(user_id, room_id)
 			player = self.controller.get_initial_player(room_id)
 			msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP.value,
 				prompt='Player to start:', 
