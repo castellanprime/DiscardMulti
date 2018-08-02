@@ -208,10 +208,8 @@ class PlayerController(object):
 		start playing the game
 		""" 
 		msg_ = DiscardMessage(cmd=RoomGameStatus.ARE_ROOMATES_IN_GAME.value,
-			data={
-				'roomid': self.player.get_room_id(),
-				'userid': self.player.get_user_id()
-			}
+				room_id=self.player.get_room_id(),
+				user_id=self.player.get_user_id()
 		)
 		return DiscardMessage.to_json(msg_)
 
@@ -242,11 +240,9 @@ class PlayerController(object):
 			return json.dumps(msg_)
 		else:
 			msg_ = DiscardMessage(cmd=RoomGameStatus.GAME_MESSAGE.value,
-				data={
-					'roomid': self.player.get_room_id(),
-					'userid': self.player.get_user_id(),
-					'message': choice
-				}
+				data=choice,
+				room_id=self.player.get_room_id(),
+				user_id=self.player.get_user_id()
 			)
 			return DiscardMessage.to_json(msg_)
 
@@ -286,6 +282,7 @@ class PlayerController(object):
 			self.show_roomates()
 		print("Received game message from server: ", msg)
 		if self.has_initial_player_been_choosen == True:
+			print("Setting message for eventual processing")
 			self.player.set_message_to_process(msg)
 	
 	def choose_initial_player(self):
@@ -310,9 +307,7 @@ class PlayerController(object):
 			'roomid': self.player.get_room_id()
 		}
 		rep = requests.get(self.room_url, params=param)
-		print(rep)
 		response = DiscardMessage.to_obj(rep.text)
-		print(response)
 		return ( response.get_payload_value(value='prompt'), 
 		response.get_payload_value(value='data'))		
 
@@ -320,11 +315,11 @@ class PlayerController(object):
 	def menu(self):
 		return 'Menu Options:\n\n' + \
 		'Select the option below related to an action.\n\n' + \
-		'h/H/pretty/Pretty - Help and rules in a browser\n' + \
-		'r/R/rules/Rules - Help and rules in your command line\n' + \
-		'p/p/play/Play - Play your turn. Note you have to play to skip' + \
-		'q/Q/quit/Quit - Exit the game\n\n' + \
-		'What is your option: '
+		'h -- Help and rules in a browser\n' + \
+		'r -- Help and rules in your command line\n' + \
+		'p -- Play your turn. Note you have to play to skip\n' + \
+		'q -- Exit the game\n\n' + \
+		'Enter your option: '
 		
 	# Experimental
 	def main_loop(self):
@@ -350,7 +345,8 @@ class PlayerController(object):
 			msg_ = self.player.play()		
 		elif choice == MainLoopChoices.LEAVE_GAME:
 			msg_ = DiscardMessage(cmd='DOCUMENTATION')
-		return msg_						
+		print("[[ Out of main_loop ]] ", msg_)
+		return DiscardMessage.to_json(msg_)						
 
 	@gen.coroutine
 	def connect_on_websocket(self):
@@ -412,13 +408,13 @@ class PlayerController(object):
 		:param choice: The choice to return a MainLoopChoice
 		:returns Enum -- A MainLoopChoice
 		"""
-		if choice in [ 'h', 'h', 'pretty', 'PRETTY']:
+		if choice == 'h':
 			return MainLoopChoices.PRETTY_HELP
-		elif choice in [ 'r', 'R', 'rules', 'RULES']:
+		elif choice == 'r':
 			return MainLoopChoices.CMD_ROUND
-		elif choice in [ 'p', 'P', 'play', 'PLAY']:
+		elif choice == 'p':
 			return MainLoopChoices.PLAY_ROUND
-		elif choice in [ 'q', 'Q', 'quit', 'QUIT']:
+		elif choice == 'q':
 			return MainLoopChoices.LEAVE_GAME
 		return None
 
