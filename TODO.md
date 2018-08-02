@@ -67,3 +67,11 @@ game_server with websockets.
 It also houses the chat server.
 
 - Extract method for choosing options from a defined list of options
+
+Date: August 2, 2018 	Redesign 5
+-----------------------------------
+
+- Use a decorator to log entry into a method and exit from a method
+and turn it on only when versbose logging is requested by the user
+- Investigate how to build a ncurses app(pyzmq) to communicate with the
+tornado loop(net client) https://github.com/jnthnwn/zmq-chat
