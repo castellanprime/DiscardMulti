@@ -13,6 +13,7 @@ class Room(object):
 		self.num_of_game_players = 0
 		self.players = []
 		self.game = None
+		self.has_initial_player_been_choosen = False
 		self.game_status = RoomGameStatus.GAME_NOT_STARTED
 
 	def get_name(self):
@@ -34,14 +35,18 @@ class Room(object):
 	def set_num_of_game_players(self, num):
 		self.num_of_game_players = num
 
-	def is_there_an_initial_player(self):
-		return self.get_initial_player() == None
-
 	def set_initial_player(self, player):
-		self.game.set_initial_player(player)
+		if self.has_initial_player_been_choosen == False:
+			self.game.set_initial_player(player)
+			self.has_initial_player_been_choosen = True
 
 	def get_initial_player(self):
 		return self.game.get_initial_player()
+
+	def get_username(self, user_id):
+		for player in self.players:
+			if player.user_id == user_id:
+				return player.nickname
 
 	def is_not_full(self):
 		return self.num_of_game_players > self.get_num_of_cur_players()

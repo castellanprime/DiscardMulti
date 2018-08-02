@@ -40,9 +40,17 @@ class RoomPlayer(object):
 		return hash(( self.nickname, self.user_id )) 
 
 	def __str__(self):
-		return 'username={0}, userid={1}'.format(
-			self.username, self.user_id
+		return 'nickname={0}, userid={1}'.format(
+			self.nickname, self.user_id
 		)
+
+	@staticmethod
+	def to_json(msg_obj):
+		return jsonpickle.encode(msg_obj)
+
+	@staticmethod
+	def to_obj(json_obj):
+		return jsonpickle.decode(json_obj)
 
 class DiscardMessage(object):
 	def __init__(self, cmd, prompt=None, 

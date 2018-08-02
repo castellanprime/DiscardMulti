@@ -15,4 +15,3 @@ class Game(object):
 
 	def set_initial_player(self, player):
 		self.model.set_initial_player(player)
-		self.model.set_current_player(player)

@@ -316,17 +316,14 @@ class Controller(object):
 					if game_conn.user_id != user_id
 				]
 
-	def is_there_an_initial_player(self, room_id):
-		for room in self.rooms:
-			if room.get_room_id() == room_id:
-				return room.is_there_an_initial_player()
-
 	def set_initial_player(self, user_id, room_id):
 		for room in self.rooms:
 			if room.get_room_id() == room_id:
-				player = [ player for player in room.get_roomates() 
-					if player.user_id == user_id]
-				room.set_initial_player(player[0])
+				for player in room.get_roomates():
+					if player.user_id == user_id:
+						print("Player selected: ", player)
+						room.set_initial_player(player)
+						break
 
 	def get_initial_player(self, room_id):
 		for room in self.rooms:
@@ -372,10 +369,12 @@ class RoomHandler(web.RequestHandler):
 			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_ROOMS_REP.value,
 				data=list_of_rooms)
 		elif cmd == RoomRequest.GET_CURRENT_PLAYER:
-			player = self.controller.get_current_player()
-			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_CURRENT_PLAYER.value, 
+			room_id = self.get_query_argument('roomid')
+			player = self.controller.get_current_player(room_id)
+			print("Player: ", player)
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.GET_CURRENT_PLAYER_REP.value, 
 				prompt='Currently playing: ',
-				data=player.username)
+				data=player.nickname)
 		self.write(DiscardMessage.to_json(msg_))
 
 	def post(self):
@@ -423,15 +422,12 @@ class RoomHandler(web.RequestHandler):
 			self.write(DiscardMessage.to_json(msg_))
 		elif cmd == RoomRequest.SET_FIRST_PLAYER:
 			room_id = recv_data.get('roomid')
-			if self.controller.is_there_an_initial_player(room_id) == False:
-				self.controller.set_initial_player(room_id, user_id)
-				msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP,
-					prompt='Player to start:', 
-					data=username)
-			else:
-				msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP.value,
-					prompt='Player to start:',
-					data=self.controller.get_initial_player(room_id).username)
+			self.controller.set_initial_player(room_id, user_id)
+			print('You should not be there')
+			player = self.controller.get_initial_player(room_id)
+			msg_ = DiscardMessage(cmd=ClientRcvMessage.SET_FIRST_PLAYER_REP.value,
+				prompt='Player to start:', 
+				data=player.nickname)
 			self.write(DiscardMessage.to_json(msg_))
 		elif cmd == RoomRequest.LEAVE_ROOM: 
 			pass

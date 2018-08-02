@@ -144,34 +144,6 @@ class PlayerController(object):
 		print("Can't find rooms. You can try to find rooms again(Recommended) or create a room.") 
 		return None 
 
-	def show_roomates(self):
-		""" This shows roomates """
-		param = {
-			'cmd': RoomRequest.GET_ROOMATES.value,
-			'userid':self.player.get_user_id(),
-			'roomid':self.player.get_room_id()
-		}
-		req = requests.get(self.room_url, 
-			params=param)
-		response = DiscardMessage.to_obj(req.text)
-		ls = [str(ind)+') '+value for ind,
-				value in enumerate(
-				response.get_payload_value(value='data'))]
-		if ls:
-			room_str = '\n'.join(ls)
-			print('My roomates:', '\n', room_str)
-		else:
-			print('You have no roomates yet!!')
-
-	def choose_wait_or_create(self):
-		question = 'Do you still want to create a room' + \
-			'(y/n)? '
-		choice = self.get_str_input(question)
-		while choice in ['y', 'n'] == False:
-			print('Wrong option')
-			choice = self.get_str_input(question)
-		return choice
-
 	def initial_menu(self):
 		return '\n'.join(['\nChoose from these options: ',
 			'j) Join an existing room(Recommended) ',
@@ -200,6 +172,34 @@ class PlayerController(object):
 					self.create_room()
 					break
 			
+
+	def show_roomates(self):
+		""" This shows roomates """
+		param = {
+			'cmd': RoomRequest.GET_ROOMATES.value,
+			'userid':self.player.get_user_id(),
+			'roomid':self.player.get_room_id()
+		}
+		req = requests.get(self.room_url, 
+			params=param)
+		response = DiscardMessage.to_obj(req.text)
+		ls = [str(ind)+') '+value for ind,
+				value in enumerate(
+				response.get_payload_value(value='data'))]
+		if ls:
+			room_str = '\n'.join(ls)
+			print('My roomates:', '\n', room_str)
+		else:
+			print('You have no roomates yet!!')
+
+	def choose_wait_or_create(self):
+		question = 'Do you still want to create a room' + \
+			'(y/n)? '
+		choice = self.get_str_input(question)
+		while choice in ['y', 'n'] == False:
+			print('Wrong option')
+			choice = self.get_str_input(question)
+		return choice
 
 	def gen_ping(self):
 		""" 
@@ -234,7 +234,7 @@ class PlayerController(object):
 		"""
 		choice = None
 		if self.has_initialised == True:
-			choice = self.get_ping()
+			choice = self.gen_ping()
 		else:
 			choice = self.get_str_input('Send a message: ')
 		if choice == "End":
@@ -289,6 +289,7 @@ class PlayerController(object):
 			self.player.set_message_to_process(msg)
 	
 	def choose_initial_player(self):
+		print("[[ In choose_initial_player ]]")
 		param = { 'cmd': RoomRequest.SET_FIRST_PLAYER.value }
 		msg_ = {
 			'userid': self.player.get_user_id(),
@@ -297,34 +298,23 @@ class PlayerController(object):
 		}
 		rep = requests.post(self.room_url, params=param,
 			json=msg_)
-		response = DiscardMessage.to_obj(rep)
+		response = DiscardMessage.to_obj(rep.text)
 		print(response.get_payload_value(value='prompt'), 
 			response.get_payload_value(value='data'))
 		if self.has_initial_player_been_choosen == False:
 			self.has_initial_player_been_choosen = True
 
 	def print_currently_playing(self):
-		param = { 'cmd' : RoomRequest.GET_CURRENT_PLAYER.value }
+		print("[[ In print_currently_playing ]]")
+		param = { 'cmd' : RoomRequest.GET_CURRENT_PLAYER.value,
+			'roomid': self.player.get_room_id()
+		}
 		rep = requests.get(self.room_url, params=param)
-		response = DiscardMessage.to_obj(rep)
+		print(rep)
+		response = DiscardMessage.to_obj(rep.text)
+		print(response)
 		return ( response.get_payload_value(value='prompt'), 
 		response.get_payload_value(value='data'))		
-
-	@gen.coroutine
-	def connect_on_websocket(self):
-		""" This makes a websocket connection to the game server """
-		try:
-			url = self.game_url + '?userId=' + \
-				self.player.get_user_id() + \
-				'&roomId=' + self.player.get_room_id() + \
-				'&username=' + self.player.get_nickname()
-			self.wsconn = yield websocket.websocket_connect(
-				url)
-		except Exception as err:
-			print("Connection error: {}".format(err))
-		else:
-			print("Initial server connection")
-			yield self.communicate_with_websocket()
 
 	# Experimental
 	def menu(self):
@@ -361,6 +351,22 @@ class PlayerController(object):
 		elif choice == MainLoopChoices.LEAVE_GAME:
 			msg_ = DiscardMessage(cmd='DOCUMENTATION')
 		return msg_						
+
+	@gen.coroutine
+	def connect_on_websocket(self):
+		""" This makes a websocket connection to the game server """
+		try:
+			url = self.game_url + '?userId=' + \
+				self.player.get_user_id() + \
+				'&roomId=' + self.player.get_room_id() + \
+				'&username=' + self.player.get_nickname()
+			self.wsconn = yield websocket.websocket_connect(
+				url)
+		except Exception as err:
+			print("Connection error: {}".format(err))
+		else:
+			print("Initial server connection")
+			yield self.communicate_with_websocket()
 
 	@gen.coroutine
 	def send_wsmessage(self):
