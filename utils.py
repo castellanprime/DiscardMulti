@@ -58,6 +58,47 @@ class DiscardMessage(object):
 			return_type=None, extra_data=None,
 			flag=None, msg_id=None,
 			user_id=None, room_id=None):
+		"""
+		This is the main message used to 
+		communicated between the servers and
+		clients
+
+		:param cmd: The command that will be run
+		on the server or return command 
+		on the client
+		
+		:param prompt: This sends what is displayed
+		on the client(mainly for the console version)
+		of the game). Might not be used on the
+		the GUI version of the game 
+		
+		:param data: This is used to send data
+		to the server from the client
+		
+		:param extra_data: This is used to send 
+		options to the client from the server. This 
+		is used for validation on the client before
+		client sends messages to the server. The
+		server can also send the latest top of the 
+		deck here
+
+		:param next_cmd: This is the cmd for the 
+		rules engine on the client used to dispatch
+		different actions
+
+		:param flag: This is used for continuation
+		purposes and is used to pause execution in 
+		the game engine on the server
+
+		:param msg_id: This is automatically on 
+		sending of messages, if not user specified.  
+		
+		:param user_id: This will removed in later
+		versions
+
+		:param room_id: This helps in the delivery
+		of the message to a room on the server 
+		"""
 		self.cmd = cmd 
 		self.__payload = {}
 		self.msg_id = msg_id if msg_id else uuid.uuid4().hex
