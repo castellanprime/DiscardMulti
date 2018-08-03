@@ -80,7 +80,7 @@ class Human(Player):
                 value='extra_data')):
                 print('Wrong option')
                 choice = self._controller.get_str_input(prompt)
-        elif (self._message_to_process.get_payload_value(
+        elif (self.__message_to_process.get_payload_value(
             value='return_type') == GameMoveType.DATATYPE_INT.value):
             choice = self._controller.get_int_input(prompt)
             while ( choice not in self.__message_to_process.get_payload_value(
@@ -92,18 +92,18 @@ class Human(Player):
             data=choice,
             room_id=self.get_room_id(),
             user_id=self.get_user_id(),
-            return_type=self.__message.get_payload_value(value='return_type'),
+            return_type=self.__message_to_process.get_payload_value(value='return_type'),
             flag=self.__message_to_process.get_payload_value(value='flag'),
             msg_id=self.__message_to_process.msg_id
         )
 
     def __punish(self, prompt):
         print(prompt)
-        if ( self.__message.get_payload_value(value='next_cmd')
+        if ( self.__message_to_process.get_payload_value(value='next_cmd')
           == GameMoveType.PICK_ONE.value):
             self.model.pick_one(
               self.__message_to_process.get_payload_value('extra_data'))
-        elif ( self.__message.get_payload_value(value='next_cmd')
+        elif ( self.__message_to_process.get_payload_value(value='next_cmd')
           == GameMoveType.PICK_TWO.value):
             for card in self.__message_to_process.get_payload_value('extra-data'):
                 self.model.pick_one(card) 
