@@ -106,3 +106,5 @@ the server while user A is still creating it,
 
 - This is useful: https://www.gamedev.net/forums/topic/679641-serverclient-architecture-for-turn-based-card-game-developed-with-unity3d/ 
 https://www.reddit.com/r/gamedev/comments/6kac66/best_architecture_for_turnbased_card_game/
+
+

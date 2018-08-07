@@ -75,3 +75,10 @@ Date: August 2, 2018 	Redesign 5
 and turn it on only when versbose logging is requested by the user
 - Investigate how to build a ncurses app(pyzmq) to communicate with the
 tornado loop(net client) https://github.com/jnthnwn/zmq-chat
+
+Date: August 7, 2018	Fixes
+-----------------------------------
+
+- Figured out a way to using pyzmq and tornado together and 
+divided the user client from the networking part.
+
