@@ -7,19 +7,10 @@ import jsonpickle
 
 class PlayerGameConn(object):
 	def __init__(self, user_id, 
-			room_id, wssocket, roomates_callback):
+			room_id, wbsocket):
 		self.user_id = user_id
 		self.room_id = room_id
-		self.roomates_callback = roomates_callback
-		self.wssocket = wssocket
-
-	def startCallBack(self):
-		if self.roomates_callback:
-			self.roomates_callback.start()
-
-	def stopCallBack(self):
-		if self.roomates_callback.is_running():
-			self.roomates_callback.stop()
+		self.wbsocket = wbsocket
 
 class RoomPlayer(object):
 	def __init__(self, nickname, user_id):
@@ -52,7 +43,7 @@ class RoomPlayer(object):
 	def to_obj(json_obj):
 		return jsonpickle.decode(json_obj)
 
-class DiscardMessage(object):
+class DiscardMsg(object):
 	def __init__(self, cmd, prompt=None, 
 			data=None, next_cmd=None,
 			return_type=None, extra_data=None,
@@ -125,7 +116,7 @@ class DiscardMessage(object):
 				return self.__payload[value]
 
 	def __eq__(self, other):
-		if not isinstance(other, DiscardMessage):
+		if not isinstance(other, DiscardMsg):
 			return False
 
 		return all(( self.cmd == other.cmd, 

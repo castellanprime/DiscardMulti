@@ -3,7 +3,7 @@
 """
 
 from serverenums import GameMoveType, RoomGameStatus
-from utils import DiscardMessage
+from utils import DiscardMsg
 
 class Player(object):
     def __init__(self, user_id):
@@ -71,39 +71,42 @@ class Human(Player):
     def get_nickname(self):
         return self.nick
 
+    def __get_prompt(self, prompt):
+        return prompt
+
     def __get_pick_option(self, prompt):
         choice = None
-        if (self.__message_to_process.get_payload(value='return_type')
+        if (self.__message_to_process.get_payload('return_type')
             == GameMoveType.DATATYPE_STR.value):
-            choice = self._controller.get_str_input(prompt)
-            while ( choice not in self.__message_to_process.get_paylaod_value(
-                value='extra_data')):
-                print('Wrong option')
-                choice = self._controller.get_str_input(prompt)
-        elif (self.__message_to_process.get_payload_value(
-            value='return_type') == GameMoveType.DATATYPE_INT.value):
-            choice = self._controller.get_int_input(prompt)
-            while ( choice not in self.__message_to_process.get_payload_value(
-                value='extra_data')):
-                print('Wrong option')
-                choice = self._controller.get_int_input(prompt)
-        return DiscardMessage(
-            cmd=RoomGameStatus.GAME_MESSAGE.value,
-            data=choice,
-            room_id=self.get_room_id(),
-            user_id=self.get_user_id(),
-            return_type=self.__message_to_process.get_payload_value(value='return_type'),
-            flag=self.__message_to_process.get_payload_value(value='flag'),
-            msg_id=self.__message_to_process.msg_id
-        )
+            choice = self._controller.validate_user_entry(
+                input_func_cb=self._controller.get_str_input,
+                input_question_cb=self.__get_prompt(prompt),
+                validation_params=self.__message_to_process.get_payload_value('extra_data')    
+            )
+        elif (self.__message_to_process.get_payload_value('return_type') 
+            == GameMoveType.DATATYPE_INT.value):
+            choice = self._controller.validate_user_entry(
+                input_func_cb=self._controller.get_int_input,
+                input_question_cb=self.__get_prompt(prompt),
+                validation_params=self.__message_to_process.get_payload_value('extra_data')    
+            )
+        return {
+            'cmd': RoomGameStatus.GAME_MESSAGE.value,
+            'data': choice,
+            'room_id': self.get_room_id(),
+            'user_id': self.get_user_id(),
+            'return_type': self.__message_to_process.get_payload_value('return_type'),
+            'flag':self.__message_to_process.get_payload_value('flag'),
+            'msg_id':self.__message_to_process.msg_id
+        }
 
     def __punish(self, prompt):
         print(prompt)
-        if ( self.__message_to_process.get_payload_value(value='next_cmd')
+        if ( self.__message_to_process.get_payload_value('next_cmd')
           == GameMoveType.PICK_ONE.value):
             self.model.pick_one(
               self.__message_to_process.get_payload_value('extra_data'))
-        elif ( self.__message_to_process.get_payload_value(value='next_cmd')
+        elif ( self.__message_to_process.get_payload_value('next_cmd')
           == GameMoveType.PICK_TWO.value):
             for card in self.__message_to_process.get_payload_value('extra-data'):
                 self.model.pick_one(card) 
@@ -113,45 +116,41 @@ class Human(Player):
         choice = None
         msg_ = {}
         if self.__message_to_process:
-            prompt = self.__message_to_process.get_payload_value(
-                value='prompt')
-            print(self.__message_to_process.get_payload_value(
-                value='data'))
-            if all((self.__message_to_process.get_payload_value(
-                value='return_type') in [ GameMoveType.DATATYPE_STR.value,
-                    GameMoveType.DATATYPE_INT.value],
-                self.__message_to_process.get_payload_value(
-                    value='next_cmd') == GameMoveType.PICK_OPTION.value)):
-                msg_ = self.__get_pick_option(prompt)
-            elif all((self.__message_to_process.get_payload_value(
-                value='return_type') == GameMoveType.DATATYPE_CARDS.value,
-                self.__message_to_process.get_payload_value(
-                 value='next_cmd') == GameMoveType.PICK_CARDS.value )):
-                print('My hand: ')
-                print('\n'.join([ str(ind) + ') ' + value 
-                  for ind, value in enumerate(self.model.get_hand())]))
-                choice = self._controller.get_int_input(prompt)
-                cards = self.model.select_cards([choice])
-                msg_ = DiscardMessage(
-                    cmd=RoomGameStatus.GAME_MESSAGE.value,
-                    data=cards,
-                    room_id=self.get_room_id(),
-                    user_id=self.get_user_id(),
-                    flag=self.__message_to_process.get_payload_value(value='flag'),
-                    msg_id=self.__message_to_process.msg_id
-                )
-            elif ( self.__message_to_process.get_payload_value(
-                   value='next_cmd') in [ GameMoveType.PICK_ONE.value, 
-                     GameMoveType.PICK_TWO.value ]):
+            prompt = self.__message_to_process.get_payload_value('prompt')
+            print(self.__message_to_process.get_payload_value('data'))
+            if all((self.__message_to_process.get_payload_value('return_type') 
+                in [ GameMoveType.DATATYPE_STR.value, GameMoveType.DATATYPE_INT.value],
+                self.__message_to_process.get_payload_value('next_cmd') 
+                == GameMoveType.PICK_OPTION.value)):
+                    msg_ = self.__get_pick_option(prompt)
+            elif all((self.__message_to_process.get_payload_value('return_type') 
+                == GameMoveType.DATATYPE_CARDS.value,
+                self.__message_to_process.get_payload_value('next_cmd') 
+                == GameMoveType.PICK_CARDS.value )):
+                    print('My hand: ')
+                    print('\n'.join([ str(ind) + ') ' + value 
+                        for ind, value in enumerate(self.model.get_hand())]))
+                    choice = self._controller.get_int_input(prompt)
+                    cards = self.model.select_cards([choice])
+                    msg_ = {
+                        'cmd':RoomGameStatus.GAME_MESSAGE.value,
+                        'data': cards,
+                        'room_id': self.get_room_id(),
+                        'user_id':self.get_user_id(),
+                        'flag': self.__message_to_process.get_payload_value(value='flag'),
+                        'msg_id': self.__message_to_process.msg_id
+                    }
+            elif ( self.__message_to_process.get_payload_value('next_cmd') 
+                in [ GameMoveType.PICK_ONE.value, GameMoveType.PICK_TWO.value ]):
                    # it is a punishment or an error   
-                self.__punish(prompt)
-                return msg
+                    self.__punish(prompt) 
             else:
-                msg_ = DiscardMessage(cmd=RoomGameStatus.GAME_MESSAGE.value,
-                    data='[Test] I sent a game move',
-                    room_id=self.get_room_id(),
-                    user_id=self.get_user_id()
-                )
+                msg_ = {
+                    'cmd': RoomGameStatus.GAME_MESSAGE.value,
+                    'data':'[Test] I sent a game move',
+                    'room_id':self.get_room_id(),
+                    'user_id':self.get_user_id()
+                }
             return msg_
         else:
             print("Do nothing")

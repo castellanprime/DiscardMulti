@@ -24,10 +24,14 @@ class Room(object):
 
 	def add_player(self, username, user_id):
 		player = RoomPlayer(nickname=username, user_id=user_id)
+		print(player, ' added')
 		self.players.append(player)
 
 	#def make_player_ready(self):
 	#	self.players_pending = self.players_pending - 1
+
+	def get_game_id(self):
+		return self.game.get_game_id()
 
 	def get_current_player(self):
 		return self.game.get_current_player()
