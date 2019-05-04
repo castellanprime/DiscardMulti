@@ -1,73 +1,85 @@
-import pickle, logging, os
+import logging, pickle
 
-state_db_file = 'state.db'
+filepath="player.db"
 
-class Model(object):
-	def __init__(self):
-		self.__logger = logging.getLogger(__name__) 
-		self.hand = []
-		self.last_played = []
-		#self.__set_previous_decks()
+class ServerModel(object):
+    def __init__(self, players):
+        self.players = players
+        self.initial_player = None 
+        self.current_player = None
 
-	def _findDBfiles(self):
-		self.__logger.info("Finding database file")
-		for root, dirs, files in os.walk(os.getcwd()):
-			for file in files:
-				if file.endswith(".db") and file == state_db_file:
-					return(os.path.join(root,file))
+    def get_initial_player(self):
+        return self.initial_player
 
-	def __set_previous_decks(self):
-		filename = self._findDBfiles()
-		state = self.load(filename)
-		if state:
-			self.hand = state['hand']
-			self.last_played = state['last_played']
+    def set_initial_player(self, player):
+        self.initial_player = player
+        print("Initial player set: ",  
+            self.initial_player)
+        self.set_current_player(player)
 
-	def get_hand(self):
-		return self.hand
+    def set_current_player(self, player):
+        self.current_player = player
+        print("Current player set: ",  
+            self.current_player)
 
-	def get_last_played(self):
-		return self.last_played
+    def get_current_player(self):
+        return self.current_player
 
-	def select_cards(self, card_numbers):
-		self.last_played = [self.hand.pop(card_num) 
-			for card_num in card_numbers]
-		return self.last_played 
-	
-	def pick_one(self, card):
-		self.hand.insert(0, card)
 
-	def add_card(self, card):
-		# Adding new card at the bottom of the hand
-		self.hand.append(card)
-
-	def add_cards(self, cards):
-		self.hand.extend(cards)
-
-	# Deprecated
-	# def pick_card(self, index):
-	#	self.last_played.append(self.hand.pop(index))
-	#	return self.last_played[len(self.last_played) - 1]
-
-	def save(self):
-		self.__logger.info('Saving current state!!')
-		filename = self._findDBfiles()
-		state = {}
-		state['hand'] = self.hand
-		state['last_played'] = self.last_played
-		file = open(filename, 'wb')
-		pickle.dump(state, file)
-		file.close()
-
-	def load(self, filename):
-		self.__logger.info("Loading old state!!")
-		state = {}
-		if os.path.getsize(filename) > 0:
-			file = open(filename, 'rb')		
-			try:
-				state = pickle.load(file)
-			except(EOFError):
-				self.__logger.debug("File is empty")
-				state = {}
-			file.close()
-		return state
+class PlayerModel(object):
+    
+    def __init__(self):
+        self.hand = []
+        self.played_moves = []
+        self.last_played = []
+        self.is_db_loaded = False
+        self.room_id = ""
+        #self.load(filepath)
+    
+    def pick_cards(self, card_numbers):
+        self.last_played = [self.hand.pop(card_number) for card_number in card_numbers]
+     
+    def get_hand(self):
+        return self.hand
+    
+    def pick_one(self, card):
+        self.hand.insert(0, card)
+        
+    def add_a_card(self, card):
+        self.hand.append(card)
+        
+    def __str__(self):
+        return 'Playermodel'
+    
+    def save(self, filepath):
+        #self._logger.info('Saving to database')
+        file = open(filepath, 'wb')
+        data = {}
+        data['hand'] = self.hand
+        data['played_moves'] = self.played_moves
+        data['last_played'] = self.last_played
+        data['room_id'] = self.room_id
+        pickle.dump(data, file)
+        file.close()
+        
+    def load(self, filepath):
+        if self.is_db_loaded == False:
+            obj=None
+            try:
+                #self._logger.info('Loading database')
+                file = open(filepath, 'rb')
+                obj=pickle.load(file)
+            except(FileNotFoundError):
+                #self._logger.debug('File is not found. Create new file')
+                obj = {}
+            except(EOFError):
+                #self._logger.debug("File is empty")
+                #self._logger.info('File is initially empty')
+                obj = {}
+            file.close()
+            self.is_db_loaded = True
+            if obj:
+                self.hand = obj['hand']
+                self.last_played = obj['last_played']
+                self.played_moves = obj['played_moves']
+                self.room_id = obj['room_id']

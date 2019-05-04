@@ -82,3 +82,12 @@ Date: August 7, 2018	Fixes
 - Figured out a way to using pyzmq and tornado together and 
 divided the user client from the networking part.
 
+Date: Sept 4, 2018	Fixes
+-----------------------------------
+
+- Tested 90% of a way to using pyzmq and tornado together. So far
+I have divided the client into the two parts: netclient(connecting to
+game server), cmdui(for user input)
+- TODO: Remove print methods. Add the game methods.
+
+
