@@ -112,6 +112,11 @@ class Human(Player):
                 self.model.pick_one(card) 
            
 
+    def turn(self, msg):
+        # Play a turn
+        pass
+
+
     def play(self):
         choice = None
         msg_ = {}
