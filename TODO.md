@@ -90,4 +90,19 @@ I have divided the client into the two parts: netclient(connecting to
 game server), cmdui(for user input)
 - TODO: Remove print methods. Add the game methods.
 
+Date: May 5, 2018 Redesign 6
+-----------------------------------
 
+- Epics for the command line version:
+
+    - Break up the room generation and game server initialization.
+    - Add a game controller in the game server for actually running
+    the rules engine
+    - Replace calls to main tornado server for player initialization
+    to calls to a Flask or aiohttp server.
+    - Add database integration to the game server for 
+    saving games
+    - Test end-to-end flow
+
+- To start next week 
+    
