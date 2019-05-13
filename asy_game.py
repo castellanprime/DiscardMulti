@@ -6,12 +6,11 @@
 import zmq
 from uuid import uuid4
 from utils import DiscardMsg
+from game import Game
+from serverenums import GameServerMsg, RoomGameStatus
 
 ctx = zmq.Context.instance()
 
-class Game(object):
-    def __init__(self, players):
-        self.players = players
 
 class GameServer(object):
 
@@ -29,7 +28,7 @@ class GameServer(object):
             game = g
         ))
         self.socket.send_pyobj(
-            DiscardMsg(cmd='GAME_STARTED',
+            DiscardMsg(cmd=RoomGameStatus.GAME_HAS_STARTED,
             data=g.get_player_cards(),
             extra_data=g.get_top_card())
         )
@@ -43,7 +42,7 @@ class GameServer(object):
         found.set_initial_player(msg.get_payload_value('player'))
         self.games[found_index] = found
         self.socket.send_pyobj(
-            DiscardMsg(cmd='INITIAL_PLAYER_SENT')
+            DiscardMsg(cmd=GameServerMsg.INITIAL_PLAYER_SET)
         )
 
     def get_game_status(self, msg):
@@ -54,7 +53,7 @@ class GameServer(object):
         found = self.games[found_index]
         found.play_move(msg.get_payload_value('player'), msg.get_payload_value('card'))
         self.socket.send_pyobj(
-            DiscardMsg(cmd='MOVE_PLAYED', data=dict(
+            DiscardMsg(cmd=GameServerMsg.MOVE_PLAYED, data=dict(
                 current_player=found.get_current_player(),
                 current_deck=found.get_current_deck()
             ))
@@ -63,15 +62,15 @@ class GameServer(object):
     def main(self):
         while True:
             msg_recv = self.socket.recv_obj()
-            if msg_recv.cmd == 'START_GAME':
+            if msg_recv.cmd == GameServerMsg.START_GAME:
                 self.create_game(msg_recv)
-            elif msg_recv.cmd == 'SET_INITIAL_PLAYER':
+            elif msg_recv.cmd == GameServerMsg.SET_INITIAL_PLAYER:
                 self.set_initial_player(msg_recv)
-            elif msg_recv.cmd == 'GET_GAME_STATUS':
+            elif msg_recv.cmd == GameServerMsg.GET_GAME_STATUS:
                 self.get_game_status(msg_recv)
-            elif msg_recv.cmd == 'PAUSE_GAME':
+            elif msg_recv.cmd == GameServerMsg.PAUSE_GAME:
                 pass
-            elif msg_recv.cmd == 'PLAY_MOVE':
+            elif msg_recv.cmd == GameServerMsg.PLAY_MOVE:
                 self.play_move(msg_recv)
 
 if __name__ == '__main__':

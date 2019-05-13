@@ -15,6 +15,8 @@ from tornado import (
     web, options, httpserver,
 	ioloop, websocket, log
 )
+from serverenums import ( ClientRcvMsg, RoomRequest,
+		RoomGameStatus )
 from utils import DiscardMsg, PlayerGameConn
 
 ###
@@ -33,13 +35,22 @@ class RoomServer(object):
     pass
 
 class RoomHandler(web.RequestHandler):
-    pass
+    def initialize(self, controller):
+        self.__controller = controller
+
+    def write_error(self, status_code, **kwargs):
+        err_cls, err, traceback = kwargs['exc_info']
+        if err.log_message:
+            msg_ = DiscardMsg(cmd=ClientRcvMsg.ERROR,
+                              data=err.log_message)
+            self.write(DiscardMsg.to_json(msg_))
 
 class GameHandler(websocket.WebSocketHandler):
 
     def initialize(self, controller, sock):
         self.room_server = controller
         self.game_eng_sock = sock
+        self.room_server.setSocket(sock)
 
     def check_origin(self, origin):
         return True
