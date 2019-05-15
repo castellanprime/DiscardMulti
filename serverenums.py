@@ -5,6 +5,11 @@ class MyEnum(Enum):
 	def __str__(self):
 		return "({0}={1})".format(self.__class__.__name__, self.name)
 
+class NumberOfCardsToDeal(MyEnum):
+	TWO_PLAYER = 8
+	THREE_PLAYER = 6
+	OTHER_PLAYER = 5
+
 class RoomRequest(MyEnum):
 	GET_ROOMATES = 'GET_ROOMATES'
 	GET_ROOMS = 'GET_ROOMS'

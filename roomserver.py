@@ -19,7 +19,7 @@ class Room(object):
         ))
 
     def has_game_not_started(self):
-        return self.game_status === RoomStatus.GAME_NOT_STARTED
+        return self.game_status == RoomStatus.GAME_NOT_STARTED
 
     def is_full(self):
         return self.room_status == RoomStatus.FULL

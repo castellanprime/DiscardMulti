@@ -110,7 +110,7 @@ class ServerModel(object):
 
 	def init_player_states(self):
 		for player in self.players:
-			self.game_state[player] = State(PlayerState.PAUSED, [])
+			self.game_state[player] = State(PlayerState.PAUSED, [], [])
 			self._logger.info("Setting STATE(PAUSED) to player")
 
 	def get_players(self):
