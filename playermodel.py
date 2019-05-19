@@ -9,7 +9,7 @@ class PlayerModel(object):
         self.played_moves = []
         self.last_played = []
         self.is_db_loaded = False
-		self.room_id = ""
+        self.room_id = ""
         #self.load(filepath)
     
     def pick_cards(self, card_numbers):
@@ -28,13 +28,13 @@ class PlayerModel(object):
         return 'Playermodel'
     
     def save(self, filepath):
-        self._logger.info('Saving to database')
+        #self._logger.info('Saving to database')
         file = open(filepath, 'wb')
         data = {}
         data['hand'] = self.hand
         data['played_moves'] = self.played_moves
         data['last_played'] = self.last_played
-		data['room_id'] = self.room_id
+        data['room_id'] = self.room_id
         pickle.dump(data, file)
         file.close()
         
@@ -42,15 +42,15 @@ class PlayerModel(object):
         if self.is_db_loaded == False:
             obj=None
             try:
-                self._logger.info('Loading database')
+                #self._logger.info('Loading database')
                 file = open(filepath, 'rb')
                 obj=pickle.load(file)
             except(FileNotFoundError):
-                self._logger.debug('File is not found. Create new file')
+                #self._logger.debug('File is not found. Create new file')
                 obj = {}
             except(EOFError):
-                self._logger.debug("File is empty")
-                self._logger.info('File is initially empty')
+                #self._logger.debug("File is empty")
+                #self._logger.info('File is initially empty')
                 obj = {}
             file.close()
             self.is_db_loaded = True
@@ -58,4 +58,4 @@ class PlayerModel(object):
                 self.hand = obj['hand']
                 self.last_played = obj['last_played']
                 self.played_moves = obj['played_moves']
-				self.room_id = obj['room_id']
+                self.room_id = obj['room_id']

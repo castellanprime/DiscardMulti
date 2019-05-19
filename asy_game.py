@@ -31,7 +31,9 @@ class GameServer(object):
             DiscardMsg(
                 cmd=RoomGameStatus.GAME_HAS_STARTED,
                 data=g.get_player_cards(),
-                extra_data=dict(top_card=g.get_top_card(), room_id=msg.get_payload_value('room_id'))
+                extra_data=dict(top_card=g.get_top_card(),
+                game_id=g_id,
+                room_id=msg.get_payload_value('room_id'))
             )
         )
 

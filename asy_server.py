@@ -10,6 +10,7 @@ import zmq
 import logging
 from zmq.eventloop.future import Context
 from zmq.eventloop.zmqstream import ZMQStream
+from roomserver import RoomServer
 from uuid import uuid4
 from tornado import (
     web, options, httpserver,
@@ -58,6 +59,7 @@ class RoomHandler(web.RequestHandler):
             list_of_rooms = self.room_server.get_all_rooms()
             msg_ = DiscardMsg(cmd=ClientRcvMsg.GET_ROOMS_REP.value,
                 data=list_of_rooms)
+        self.write(DiscardMsg.to_json(msg_))
 
     def post(self):
         recv_data = DiscardMsg.to_obj(self.request.body)
@@ -93,8 +95,10 @@ class RoomHandler(web.RequestHandler):
 
 class GameHandler(websocket.WebSocketHandler):
 
+    room_server = None
+
     def initialize(self, controller, logger):
-        self.room_server = controller
+        GameHandler.room_server = controller
         self._logger = logger
 
     def check_origin(self, origin):
@@ -103,28 +107,28 @@ class GameHandler(websocket.WebSocketHandler):
     def open(self, *args, **kwargs):
         self._client_id = self.get_argument('user_id')
         room_id = self.get_argument('room_id')
-        self.room_server.add_game_conn(self._client_id, room_id, self)
+        GameHandler.room_server.add_game_conn(self._client_id, room_id, self)
         self._logger.info('Websocket opened. ClientID = {0}'.format(self._client_id))
 
     ''' This function receives a message from the client and sends that message to the game engine'''
     def on_message(self, message):
         self._logger.info('[PWS] received message {msg} from client'.format(msg=message))
-        self.room_server.handle_msg(message)
+        GameHandler.room_server.handle_msg(message)
 
     ''' This function receives a message from the game engine and sends that message back to the client'''
     @classmethod
     def publish_message(cls, msg):
-        msg_ = self.room_server.recv_pyobj(msg)
+        msg_ = GameHandler.room_server.game_socket.recv_pyobj(msg)
         room_id = msg_.get_payload_value('extra_data')['room_id']
-        for room in self.room_server.rooms:
+        for room in GameHandler.room_server.rooms:
             if room.room_id == room_id:
                 for player in room.players:
                     wbsocket = player.get('wbsocket')
                     wbsocket.write_message(DiscardMsg.to_json(msg_))
 
     def on_close(self):
-        self.room_server.remove_game_conn(self._client_id)
-        if self.room_server.shutdown():
+        GameHandler.room_server.remove_game_conn(self._client_id)
+        if GameHandler.room_server.shutdown():
             sys.exit(0)
 
 class Server(web.Application):

@@ -1,6 +1,7 @@
 import logging
 from uuid import uuid4
-from serverenums import RoomStatus
+from serverenums import RoomStatus, RoomRequest, ClientRcvMsg, GameServerMsg
+from utils import DiscardMsg
 
 class Room(object):
     def __init__(self, room_name, num_of_players, room_id):
@@ -93,7 +94,7 @@ class RoomServer(object):
                     cmd=ClientRcvMsg.HANDSHAKE_REP.value,
                     prompt='Added websocket conn for player {0}'.format(user_id)
                 )
-                self.send_reply(user_id, room_id, msg)
+                self.send_reply(user_id, room_id, msg, broadcast=True)
                 break
 
     def send_reply(self, user_id, room_id, msg, broadcast=False):
@@ -114,7 +115,7 @@ class RoomServer(object):
         room_id = msg.get_payload_value('room_id')
         user_id = msg.get_payload_value('user_id')
         prompt = ''
-        if cmd == RoomRequest.CAN_GAME_BE_STARTED:
+        if cmd == RoomRequest.CAN_GAME_BE_STARTED:  # it was initially ARE ROOMATES IN GAME
             for room in self.rooms:
                 if room.room_id == room_id:
                     if room.is_open():
@@ -133,7 +134,7 @@ class RoomServer(object):
                     else:
                         ret = DiscardMsg(
                             cmd=ClientRcvMsg.GAME_MESSAGE_REP.value,
-                            prompt=ClientRcvMsg.GAME_HAS_ALREADY_STARTED_REP.value
+                            prompt=ClientRcvMsg.GAME_HAS_ALREADY_STARTED_REP.value   # it was initially GAME_HAS_STARTED
                         )
                         self.send_reply(user_id, room_id, ret)
         elif cmd == RoomRequest.GAME_MESSAGE:
@@ -162,7 +163,7 @@ class RoomServer(object):
             for player in room.players:
                 if player.user_id == user_id:
                     room.update_user(user_id, user_name=None, game_conn=None)
-                    self._logger.info('{0}\'s connection has been dropped'.format(user_name))
+                    self._logger.info('{0}\'s connection has been dropped'.format(user_id))
                     break
 
     def shutdown(self):

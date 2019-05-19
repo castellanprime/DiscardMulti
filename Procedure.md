@@ -25,9 +25,7 @@ four seconds. This PeriodicCallback sends the list of roomates.
 successfully connected.
 > - Once the required number of clients are connected, the server stops the 
 PeriodicCallback for every clients in the room and sends all of them a
-'game begin' message.
-
-Instructions for Periodic Callback: 
+'game begin' message.Instructions for Periodic Callback: 
 https://stackoverflow.com/questions/19542333/websocket-server-sending-messages-periodically-in-python/19571205#19571205 
 
 
@@ -71,37 +69,37 @@ has been dropped.
 
 > Operation
 
-Server sends a message with GAME_MESSAGE_REP header, PICK_OPTION sub_header.
+> > Server sends a message with GAME_MESSAGE_REP header, PICK_OPTION sub_header.
 If the return type is INT or STR, the server saves the message, user_id, and
 a flag USER_CONTINUE. 
 
-Client receives said message and responds with GAME_MESSAGE header, data as
+> > Client receives said message and responds with GAME_MESSAGE header, data as
 its choice, and the  
 
-PICK_OPTION + return_type(INT or STR) -> server accepts and move
+> > > PICK_OPTION + return_type(INT or STR) -> server accepts and move
 
-PICK_CARDS + no return_type = punishment/error
+> > >PICK_CARDS + no return_type = punishment/error
 PICK_CARDS + return_type(LIST) = pick your own cards
 
-- Scenario A:
+> Scenario A:
 
-> -  If a user A starts creating a room on the server and other users connect to 
+> > -  If a user A starts creating a room on the server and other users connect to 
 the server while user A is still creating it,
  
-> > - this server should indicate to the other users that a room is being created,
-> > - this server should make the users wait for the server to get the room id before they can join, but also should give them to continue waiting or create their own room
+> > > - this server should indicate to the other users that a room is being created,
+> > > - this server should make the users wait for the server to get the room id before they can join, but also should give them to continue waiting or create their own room
 
-- Scenario B:
+> - Scenario B:
 
-> If a user A leaves a game, do some procedures:
+> > If a user A leaves a game, do some procedures:
 
-> > 1.  the user sends a game message to the server 
-> > 2.  the server then pauses the game, saves the game state and discards any pending messages.
-> > 3.  the server then sends back the players' state to the respective player.
-> > 4.  the user then saves the game, and sends a leave command to the server.
-> > 5.  the server then sends a broadcast message to all the players still in th game ,a create_a_computer message message, The server also sends back a leave_rep message to the player that sent the leave cmd.
-> > 6.  the player which have received a leave_rep message closes websocket connection.
-> > 7.  The players that have not been sent the leave cmd are given the option to add a Computer to replace the user that left. If one wants to leave, steps 1 - 7 is followed. If the players choose the Computer, the game is resumed. 
+> > > 1.  the user sends a game message to the server 
+> > > 2.  the server then pauses the game, saves the game state and discards any pending messages.
+> > > 3.  the server then sends back the players' state to the respective player.
+> > > 4.  the user then saves the game, and sends a leave command to the server.
+> > > 5.  the server then sends a broadcast message to all the players still in th game ,a create_a_computer message message, The server also sends back a leave_rep message to the player that sent the leave cmd.
+> > > 6.  the player which have received a leave_rep message closes websocket connection.
+> > > 7.  The players that have not been sent the leave cmd are given the option to add a Computer to replace the user that left. If one wants to leave, steps 1 - 7 is followed. If the players choose the Computer, the game is resumed. 
 
 
 - This is useful: https://www.gamedev.net/forums/topic/679641-serverclient-architecture-for-turn-based-card-game-developed-with-unity3d/ 
