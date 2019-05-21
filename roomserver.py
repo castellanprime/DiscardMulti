@@ -19,6 +19,9 @@ class Room(object):
             wbsocket = None
         ))
 
+    def is_game_starting(self):
+        return self.game_status == RoomStatus.GAME_IS_STARTING
+
     def has_game_not_started(self):
         return self.game_status == RoomStatus.GAME_NOT_STARTED
 
@@ -124,13 +127,14 @@ class RoomServer(object):
                             prompt='Waiting for {} players to join'.format(str(room.get_num_of_players_remaining()))
                         )
                         self.send_reply(user_id, room_id, ret)
-                    elif all([room.is_full(), room.has_game_not_started()]):
+                    elif all([room.is_full(), room.is_game_starting() == False]):
+                        room.game_status = RoomStatus.GAME_IS_STARTING
+                        self.game_socket.send_pyobj(ret)
                         ret = DiscardMsg(
-                            cmd=GameServerMsg.START_GAME.value,
+                            cmd=GameServerMsg.GAME_IS_STARTING.value,
                             data=room_id
                         )
-                        self.game_socket.send_pyobj(ret)
-                        room.game_status = RoomStatus.GAME_HAS_STARTED
+                        self.send_reply(user_id, room_id, ret, broadcast=True)
                     else:
                         ret = DiscardMsg(
                             cmd=ClientRcvMsg.GAME_MESSAGE_REP.value,
