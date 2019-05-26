@@ -15,7 +15,7 @@ from common.playerstate import State
 
 class ServerModel(object):
 
-	def __init__(self):
+	def __init__(self, players):
 		self._logger = logging.getLogger(__name__)
 		self.discard_deck = []		  # Where all the cards played reside
 		self.main_deck = []				# # Main game deck
@@ -31,7 +31,8 @@ class ServerModel(object):
 		self._init_deck()
 		self.last_played, self.current_player = None, None
 		self.game_state = {}
-		self.players = []
+		self.init_player_states(players)
+		self.players = players
 		self.state_history = []
 
 	"Deck creation methods"
@@ -108,8 +109,8 @@ class ServerModel(object):
 	def get_game_deck(self):
 		return self.main_deck
 
-	def init_player_states(self):
-		for player in self.players:
+	def init_player_states(self, players):
+		for player in players:
 			self.game_state[player] = State(PlayerState.PAUSED, [], [])
 			self._logger.info("Setting STATE(PAUSED) to player")
 
@@ -117,7 +118,13 @@ class ServerModel(object):
 		return self.players
 
 	def get_player_cards(self, player):
-		return self.players[self.players.index(player)].get_deck()
+		found = self.game_state[player]
+		return found.current_deck
+		
+	def give_player_a_card(self, player, index):
+		found = self.game_state[player]
+		found.current_deck.append(self.get_a_card(index))
+		self.game_state[player] = found
 
 	def get_a_card(self, index):
 		# Shuffle if the main_deck is small

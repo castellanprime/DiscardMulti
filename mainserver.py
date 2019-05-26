@@ -1,36 +1,38 @@
 """
-	Server program
-	This holds the game loop and connects to
-	net client
+    Server program
+    This holds the game loop and connects to
+    net client
 """
 
 '''Cant use await for zmq since I need asyncio to run the '''
 
-import zmq
+import zmq, sys
 import logging
 from zmq.eventloop.future import Context
 from zmq.eventloop.zmqstream import ZMQStream
 from roomserver import RoomServer
-from uuid import uuid4
+from gameserver import GameServer
 from tornado import (
     web, options, httpserver,
-	ioloop, websocket, log
+    ioloop, websocket, log
 )
-from serverenums import ( ClientRcvMsg, RoomRequest,
-		RoomGameStatus )
-from utils import DiscardMsg, PlayerGameConn
+from serverenums import (
+    RoomRequest,
+    GameRequest,
+    ClientResponse
+)
+from utils import DiscardMsg
 
 ###
 # set up logging to stdout
-import sys
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
 root_logger.addHandler(stream_handler)
-
-game_engine_port = '5556'
 context = Context.instance()
+game_server_port = 5556
+
 
 class RoomHandler(web.RequestHandler):
     def initialize(self, controller, logger):
@@ -40,7 +42,7 @@ class RoomHandler(web.RequestHandler):
     def write_error(self, status_code, **kwargs):
         err_cls, err, traceback = kwargs['exc_info']
         if err.log_message:
-            msg_ = DiscardMsg(cmd=ClientRcvMsg.ERROR,
+            msg_ = DiscardMsg(cmd=ClientResponse.ERROR,
                               data=err.log_message)
             self.write(DiscardMsg.to_json(msg_))
 
@@ -53,12 +55,16 @@ class RoomHandler(web.RequestHandler):
             room_id = self.get_query_argument('room_id')
             list_of_roomates = self.room_server.get_all_roomates(user_id,
                         room_id)
-            msg_ = DiscardMsg(cmd=ClientRcvMsg.GET_ROOMATES_REP.value,
-                data=list_of_roomates)
+            msg_ = DiscardMsg(
+                cmd=ClientResponse.GET_ROOMATES_REP.value,
+                data=list_of_roomates
+            )
         elif cmd == RoomRequest.GET_ROOMS:
             list_of_rooms = self.room_server.get_all_rooms()
-            msg_ = DiscardMsg(cmd=ClientRcvMsg.GET_ROOMS_REP.value,
-                data=list_of_rooms)
+            msg_ = DiscardMsg(
+                cmd=ClientResponse.GET_ROOMS_REP.value,
+                data=list_of_rooms
+            )
         self.write(DiscardMsg.to_json(msg_))
 
     def post(self):
@@ -74,8 +80,10 @@ class RoomHandler(web.RequestHandler):
             room_name = recv_data.get_payload_value('data')['room_name']
             room_id = self.room_server.create_room(num_of_players, room_name)
             self.room_server.add_player(room_id, user_id, user_name)
-            msg_ = DiscardMsg(cmd=ClientRcvMsg.CREATE_A_ROOM_REP.value,
-                data=room_id)           
+            msg_ = DiscardMsg(
+                cmd=ClientResponse.CREATE_A_ROOM_REP.value,
+                data=room_id
+            )
             self.write(DiscardMsg.to_json(msg_))
         elif cmd == RoomRequest.JOIN_ROOM:
             room_id = recv_data.get_payload_value('room_id')
@@ -84,9 +92,10 @@ class RoomHandler(web.RequestHandler):
                 self.room_server.add_player(room_id, user_id, user_name)
                 self._logger.info('You have been added to room: {0}'.format(str(room_id)))
                 msg_ = DiscardMsg(
-                    cmd=ClientRcvMsg.JOIN_ROOM_REP.value,
+                    cmd=ClientResponse.JOIN_ROOM_REP.value,
                     prompt='You have been added to room: {0}'.format(str(room_id))
                 )
+                # this should be a broadcast
                 self.write(DiscardMsg.to_json(msg_))
             else:
                 raise web.HTTPError(status_code=500, 
@@ -129,33 +138,42 @@ class GameHandler(websocket.WebSocketHandler):
     def on_close(self):
         GameHandler.room_server.remove_game_conn(self._client_id)
         if GameHandler.room_server.shutdown():
+            GameHandler.room_server.handle_msg(DiscardMsg(cmd=GameRequest.STOP_GAME))
             sys.exit(0)
 
 class Server(web.Application):
     def __init__(self):
         self._logger = logging.getLogger(__name__)
-        room_server = RoomServer()
+        self.room_server = RoomServer()
         client_sock = context.socket(zmq.PAIR)
-        client_sock.connect('tcp://127.0.0.1:{port}'.format(port=game_engine_port))
+        client_sock.connect('tcp://127.0.0.1:{port}'.format(port=game_server_port))
         stream_sock = ZMQStream(client_sock)
         stream_sock.on_recv(GameHandler.publish_message)
-        room_server.game_socket = stream_sock
+        self.room_server.game_socket = stream_sock
 
         handlers = [
-            (r'/game', GameHandler, {'controller': room_server, 'logger': self._logger}),
-            (r'/room', RoomHandler, {'controller': room_server, 'logger': self._logger})
+            (r'/game', GameHandler, {'controller': self.room_server, 'logger': self._logger}),
+            (r'/room', RoomHandler, {'controller': self.room_server, 'logger': self._logger})
         ]
         web.Application.__init__(self, handlers)
+
+    def close(self):
+        self.room_server.handle_msg(DiscardMsg(cmd=GameRequest.STOP_GAME))
 
 if __name__ == 'main':
     log.enable_pretty_logging()
     options.parse_command_line()
+    app = None
     try:
-        # Somewhere here would be a game thread
+        game_server = GameServer(game_server_port)
+        import threading
+        t = threading.Thread(target=game_server.main)
+        t.start()
         app = Server()
         server = httpserver.HTTPServer(app)
         server.listen(8888)
         ioloop.IOLoop.instance().start()
     except(SystemExit, KeyboardInterrupt):
+        app.close()
         ioloop.IOLoop.instance().stop()
         print('Server closed')

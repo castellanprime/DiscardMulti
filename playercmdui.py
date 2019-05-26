@@ -8,14 +8,14 @@ import time
 import sys
 import json
 import argparse
-import zlib
-import pickle
 
 from uuid import uuid4
 
 from players import Human
 from serverenums import ( ClientRcvMsg, 
 	RoomRequest, RoomGameStatus,
+	GameStatus,
+	GameRequest,
 	LoopChoices)
 
 from utils import DiscardMsg
@@ -62,7 +62,8 @@ class CmdUI(object):
 	'''END: Entry methods'''	
 
 	''' BEGIN: Menu string'''
-	def landing_page_menu_str(self):
+	@staticmethod
+	def landing_page_menu_str():
 		return '\n'.join([
 			'\n Choose from these options:',
 			'j) Join an existing room(Recommended)',
@@ -70,12 +71,14 @@ class CmdUI(object):
 			'e) Exit',
 			'\nSelect option: '
 		])
-	
+
+	@staticmethod
 	def room_menu_str(self):
 		return 'How many players do you want to play with' + \
 			'[1-7]: '
 
-	def choose_room_menu_str(self):
+	@staticmethod
+	def choose_room_menu_str():
 		return 'Choose room to join: '
 
 	def landing_page_menu(self):
@@ -95,9 +98,10 @@ class CmdUI(object):
 				self.create_new_room()
 				break
 			elif choice == LoopChoices.LEAVE_GAME:
-				sys.exit(0)
-	
-	def game_menu_str(self):
+				self.close_on_panic()
+
+	@staticmethod
+	def game_menu_str():
 		return '\n'.join(['\nMenu Options:\n',
 		'Select an option below related to an action.\n',
 		'h -- help and rules in a browser',
@@ -111,19 +115,24 @@ class CmdUI(object):
 		self.print_current_playing()
 		choice = self.validate_user_entry(
 			input_func_cb = self.get_str_input,
-			input_question_cb = self.game_menu_str(),
+			input_question_cb = CmdUI.game_menu_str(),
 			validation_params = ['h', 'r', 'p','q']
 		)
 		answer=LoopChoices(choice)
 		if answer == LoopChoices.PRETTY_HELP:
-			msg_ = {}
+			return dict()
 		elif answer == LoopChoices.CMD_RULES:
-			msg_ = {}
+			return dict()
 		elif answer == LoopChoices.PLAY_ROUND:
-			self.msg_ = self.generate_message_for_netclient(
+			return self.generate_message_for_netclient(
 					self.player.play(), dest='game')
 		elif answer == LoopChoices.LEAVE_GAME:
-			msg_ = {}
+			return self.generate_message_for_netclient(
+				{'cmd': GameRequest.STOP_GAME.value,
+				'room_id': self.player.get_room_id(),
+				},
+				dest='game'
+			)
 
 	def choose_player_menu_str(self, roomates):
 		return '\n'.join(['\nList of roomates:', roomates, 
@@ -168,7 +177,7 @@ class CmdUI(object):
 		room_name = self.get_str_input("What is the room's name: ")
 		num_of_players = self.validate_user_entry(
 			input_func_cb = self.get_int_input,
-			input_question_cb = self.room_menu_str(),
+			input_question_cb = CmdUI.room_menu_str(),
 			validation_params = [x for x in range(1, 8)]
 		)
 		num_of_players = num_of_players + 1
@@ -208,7 +217,7 @@ class CmdUI(object):
 			print('The rooms available: ', rooms_str)
 			choice = self.validate_user_entry(
 				input_func_cb = self.get_int_input,
-				input_question_cb = self.choose_room_menu_str(),
+				input_question_cb = CmdUI.choose_room_menu_str(),
 				validation_params = [x for x in range(len(ls_))]
 			)
 			room = room_list[choice]
@@ -298,17 +307,23 @@ class CmdUI(object):
 		msg_recv = self.socket.recv_pyobj()
 		print(msg_recv.get_payload_value('prompt'))
 
-	def close_game(self, st=None):
-		if st == 'in_game':
-			self.socket.send_pyobj(self.generate_message_for_netclient(
-				{ 'cmd': RoomGameStatus.STOP_GAME.value}
-			))
+	def close_game(self):
 		self.socket.close()
 		self.ctx.term()
 		sys.exit(0)
 
-	def is_game_conn_open(self):
-		return self.socket.closed == False
+	def close_on_panic(self):
+		self.socket.send_pyobj(
+			self.generate_message_for_netclient(
+				{'cmd': GameRequest.STOP_GAME.value,
+				'room_id': self.player.get_room_id(),
+				},
+				dest='game'
+			)
+		)
+		msg = self.socket.recv_pyobj()
+		self._logger.info('Received on exit={}'.format(str(msg)))
+		self.close_game()
 
 	# Method of entry
 	def main(self):
@@ -316,11 +331,11 @@ class CmdUI(object):
 		self.create_new_game_conn()
 		self.choose_initial_player()
 		while True:
-			self.game_menu()
-			if self.current_player == self.player.get_nickname():
-				self.socket.send_pyobj(self.msg_recv)
+			msg_snd = self.game_menu()
+			if all([self.current_player == self.player.get_nickname(), msg_snd]):
+				self.socket.send_pyobj(msg_snd)
 				msg_recv = self.socket.recv_obj()
-				if msg_recv.cmd == 'GAME_CONN_CLOSED':
+				if msg_recv.cmd == GameStatus.ENDED:
 					print('Player ended game session')
 					self.close_entry()
 				if msg_recv.cmd == ClientRcvMsg.GAME_MESSAGE_REP.value:
@@ -343,7 +358,6 @@ if __name__ == '__main__':
 			c = CmdUI(args.server_port)
 			c.main()
 		except(SystemExit, KeyboardInterrupt):
-			if c.is_game_conn_open():
-				c.close_game('in_game')
+			c.close_on_panic()
 			print('\n Player has exited game \n')
 			

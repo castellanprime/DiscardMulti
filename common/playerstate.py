@@ -25,3 +25,4 @@ class State(object):
 	def set_win_status(self, status):
 		"""One of the enums Gamestate"""
 		self.win_status = status
+		
