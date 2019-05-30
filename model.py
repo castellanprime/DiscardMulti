@@ -5,24 +5,34 @@ filepath="player.db"
 class PlayerModel(object):
     
     def __init__(self):
-        self.hand = []
+        self._hand = []
         self.played_moves = []
         self.last_played = []
         self.is_db_loaded = False
         self.room_id = ""
+        self._top_card = None
         #self.load(filepath)
     
     def pick_cards(self, card_numbers):
         self.last_played = [self.hand.pop(card_number) for card_number in card_numbers]
-     
-    def get_hand(self):
-        return self.hand
+
+    @property
+    def hand(self):
+        return self._hand
     
     def pick_one(self, card):
         self.hand.insert(0, card)
         
     def add_a_card(self, card):
         self.hand.append(card)
+
+    @property
+    def top_card(self):
+        return self._top_card
+
+    @top_card.setter
+    def top_card(self, card):
+        self._top_card = card
         
     def __str__(self):
         return 'Playermodel'

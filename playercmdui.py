@@ -4,25 +4,32 @@
 """
 
 import zmq
-import time
 import sys
-import json
 import argparse
+import logging
 
 from uuid import uuid4
 
 from players import Human
 from serverenums import ( ClientRcvMsg, 
-	RoomRequest, RoomGameStatus,
+	RoomRequest,
 	GameStatus,
 	GameRequest,
-	LoopChoices)
-
-from utils import DiscardMsg
+	ClientResponse,
+	LoopChoices,
+	MessageDestination
+)
 from model import PlayerModel
+
+# root_logger = logging.getLogger()
+# root_logger.setLevel(logging.INFO)
+# stream_handler = logging.StreamHandler(sys.stdout)
+# stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+# root_logger.addHandler(stream_handler)
 
 class CmdUI(object):
 	def __init__(self, port):
+		self._logger = logging.getLogger(__name__)
 		self.ctx = zmq.Context()
 		self.socket = self.ctx.socket(zmq.PAIR)
 		self.socket.connect('tcp://127.0.0.1:{}'.format(port))
@@ -51,12 +58,12 @@ class CmdUI(object):
 				print(err)
 
 	def validate_user_entry(self, input_func_cb, 
-			input_question_cb, validation_params):
-		choice = input_func_cb(input_question_cb)
+			input_question, validation_params):
+		choice = input_func_cb(input_question)
 		while choice in validation_params == False:
 			print('Error: Option choosen not in ',
 				'valid options=', validation_params)
-			choice = input_func_cb(input_question_cb)
+			choice = input_func_cb(input_question)
 		return choice
 		
 	'''END: Entry methods'''	
@@ -128,10 +135,8 @@ class CmdUI(object):
 					self.player.play(), dest='game')
 		elif answer == LoopChoices.LEAVE_GAME:
 			return self.generate_message_for_netclient(
-				{'cmd': GameRequest.STOP_GAME.value,
-				'room_id': self.player.get_room_id(),
-				},
-				dest='game'
+				{'cmd': GameRequest.STOP_GAME},
+				dest=MessageDestination.GAME
 			)
 
 	def choose_player_menu_str(self, roomates):
@@ -142,11 +147,12 @@ class CmdUI(object):
 
 	def print_current_playing(self):
 		msg_snd = self.generate_message_for_netclient(
-			{ 'cmd': 'GET_CURRENT_PLAYER',
-			'room_id': self.player.get_room_id()
+			{'cmd': RoomRequest.GAME_REQUEST,
+		  	'next_cmd': GameRequest.GET_GAME_STATUS,
+			'room_id': self.player.room_id,
+			'game_id': self.game_id,
 			},
-			dest='web',
-			get=True
+			dest=MessageDestination.GAME
 		)
 		self.socket.send_pyobj(msg_snd)
 		msg_recv = self.socket.recv_pyobj()
@@ -154,10 +160,8 @@ class CmdUI(object):
 		self.current_player = msg_recv.get_payload_value('nickname')
 	
 	def generate_message_for_netclient(self, msg,
-		dest=None, post=False, get=False):
+		post=False, get=False):
 		msg_snd = msg
-		if dest:
-			msg_snd['dest'] = dest.upper()
 		if post:
 			msg_snd['req_type'] = 'POST'
 		if get:
@@ -182,24 +186,24 @@ class CmdUI(object):
 		)
 		num_of_players = num_of_players + 1
 		msg_snd = self.generate_message_for_netclient(
-			{ 'user_name': self.player.get_nickname(),
-			'user_id': self.player.get_user_id(),
+			{ 'user_name': self.player.nickname,
+			'user_id': self.player.user_id,
 			'num_of_players': num_of_players,
 			'room_name': room_name,
 			'cmd': RoomRequest.CREATE_A_ROOM.value
 			},
-			dest='web',
+			dest=MessageDestination.WEB,
 			post=True
 		)
 		self.socket.send_pyobj(msg_snd)
 		msg_recv = self.socket.recv_pyobj()
-		self.player.set_room_id(msg_recv.get_payload_value('data'))
+		self.player.room_id = msg_recv.get_payload_value('data')
 
 	def find_room(self):
 		print('\n\n\t====Getting rooms to join====')
 		msg_snd = self.generate_message_for_netclient(
 			{ 'cmd' : RoomRequest.GET_ROOMS.value },
-			dest='web',
+			dest=MessageDestination.WEB,
 			get=True
 		)
 		self.socket.send_pyobj(msg_snd)
@@ -229,14 +233,14 @@ class CmdUI(object):
 	def join_room(self, room):
 		print('\n\n\t=====Joining room====')
 		self.create_new_user()
-		self.player.set_room_id(room['room_id'])
+		self.player.room_id = room['room_id']
 		msg_snd = self.generate_message_for_netclient(
-			{ 'user_name': self.player.get_nickname(),
-			'user_id': self.player.get_user_id(),
+			{ 'user_name': self.player.nickname,
+			'user_id': self.player.user_id,
 			'room_id': room['room_id'],
 			'cmd': RoomRequest.JOIN_ROOM.value
 			}, 
-			dest='web',
+			dest=MessageDestination.WEB,
 			post=True
 		)
 		self.socket.send_pyobj(msg_snd)
@@ -250,12 +254,12 @@ class CmdUI(object):
 	def create_new_game_conn(self):
 		print('[[ In create_new_game_conn ]]')
 		msg_snd = self.generate_message_for_netclient(
-			{ 'cmd': RoomGameStatus.OPEN_GAME_CONN.value, 
-			'room_id': self.player.get_room_id(),
-			'user_id': self.player.get_user_id(),
-			'user_name': self.player.get_nickname(),
+			{ 'cmd': RoomRequest.START_GAME.value,
+			'room_id': self.player.room_id,
+			'user_id': self.player.user_id,
+			'user_name': self.player.nickname,
 			},
-			dest='game'
+			dest=MessageDestination.GAME
 		)
 		self.socket.send_pyobj(msg_snd)
 		while True:
@@ -265,22 +269,22 @@ class CmdUI(object):
 				msg_recv.get_payload_value('prompt')
 			)
 			print("Message received: ", msg_recv)
-			self.game_id = msg_recv.get_payload_value('data')
-			if (msg_recv.get_payload_value('prompt') in [
-				ClientRcvMsg.GAME_HAS_ALREADY_STARTED_REP.value,
-				ClientRcvMsg.GAME_HAS_STARTED_REP.value
-			]):
+			if (msg_recv.get_payload_value('prompt') ==
+					ClientResponse.GAME_HAS_STARTED_REP.value):
+				self.game_id = msg_recv.get_payload_value('data')['game_id']
+				self.player.set_deck(msg_recv.get_payload_value('data')['cards'])
+				self.player.top_card = msg_recv.get_payload_value('extra_data')
 				return
 	
 	def choose_initial_player(self):
 		print('[[ In choose_initial_player ]]')
 		msg_snd = self.generate_message_for_netclient(
 			{ 'cmd': RoomRequest.GET_ROOMATES.value,
-			'user_id': self.player.get_user_id(),
-			'room_id': self.player.get_room_id()
+			'user_id': self.player.user_id,
+			'room_id': self.player.room_id
 			 },
 			get=True,
-			dest='web'
+			dest=MessageDestination.WEB
 		)
 		self.socket.send_pyobj(msg_snd)
 		print('[[ Getting roomates ]]')
@@ -296,12 +300,13 @@ class CmdUI(object):
 		)
 		roomate = roomates[choice]
 		msg_snd = self.generate_message_for_netclient(
-			{ 'cmd': RoomRequest.SET_FIRST_PLAYER.value,
-			'room_id': self.player.get_room_id(),
-			'user_id': roomate.user_id
+			{ 'cmd': RoomRequest.GAME_REQUEST.value,
+			'next_cmd': RoomRequest.SET_FIRST_PLAYER.value,
+			'room_id': self.player.room_id,
+			'user_id': roomate.user_id,
+			'data': self.game_id
 			},
-			dest='web',
-			post=True
+			dest=MessageDestination.GAME,
 		)
 		self.socket.send_pyobj(msg_snd)
 		msg_recv = self.socket.recv_pyobj()
@@ -315,10 +320,8 @@ class CmdUI(object):
 	def close_on_panic(self):
 		self.socket.send_pyobj(
 			self.generate_message_for_netclient(
-				{'cmd': GameRequest.STOP_GAME.value,
-				'room_id': self.player.get_room_id(),
-				},
-				dest='game'
+				{'cmd': GameRequest.STOP_GAME.value},
+				dest=MessageDestination.GAME
 			)
 		)
 		msg = self.socket.recv_pyobj()
@@ -332,12 +335,12 @@ class CmdUI(object):
 		self.choose_initial_player()
 		while True:
 			msg_snd = self.game_menu()
-			if all([self.current_player == self.player.get_nickname(), msg_snd]):
+			if all([self.current_player == self.player.nickname, msg_snd]):
 				self.socket.send_pyobj(msg_snd)
 				msg_recv = self.socket.recv_obj()
 				if msg_recv.cmd == GameStatus.ENDED:
 					print('Player ended game session')
-					self.close_entry()
+					self.close_game()
 				if msg_recv.cmd == ClientRcvMsg.GAME_MESSAGE_REP.value:
 					self.player.set_message_to_process(msg_recv)
 			else:

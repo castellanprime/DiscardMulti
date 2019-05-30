@@ -20,7 +20,8 @@ from serverenums import (
 	RoomRequest,
 	GameRequest,
 	ClientResponse,
-	GameStatus
+	GameStatus,
+	MessageDestination
 )
 from utils import DiscardMsg
 from playercmdui import CmdUI
@@ -53,6 +54,7 @@ class NetClient(object):
 		self.room_id = None
 		self.user_id = None
 		self.user_name = None
+		self.user_exit = False  # Only use if the user actually exited from the menu option
 
 	def send_to_web_handler(self, msg, other_msg):
 		req = None
@@ -84,31 +86,30 @@ class NetClient(object):
 			})
 		return DiscardMsg.to_obj(msg_recv)
 
+	# rewrite
 	def compose_message_to_server(self, msg):
+		if 'user_name' in msg.keys():
+			self.user_name = msg['user_name']
 		data_ = { key:value 
 					for key, value in msg.items()
-					if key not in ['cmd', 'user_id',
-					'room_id', 'dest', 'req_type']
+					if DiscardMsg.is_not_payload_type(key)
 		}
 		self._logger.info('Message to compose: '.format(str(data_)))
-		msg_snd = DiscardMsg(cmd=msg['cmd'], data=data_)
-		if 'user_id' in msg.keys() and 'room_id' in msg.keys():
-			msg_snd = DiscardMsg(cmd=msg['cmd'], 
+		msg_snd = None
+		if all(['user_id' in msg.keys(), 'room_id' not in msg.keys()]):
+			msg_snd = DiscardMsg(cmd=msg['cmd'],
+			data=data_, user_id=msg['user_id'])
+			self.user_id = msg['user_id']
+		elif all(['room_id' in msg.keys(), 'user_id' not in msg.keys()]):
+			msg_snd = DiscardMsg(cmd=msg['cmd'],
+			data=data_, room_id=msg['room_id'])
+			self.room_id = msg['room_id']
+		else:
+			msg_snd = DiscardMsg(cmd=msg['cmd'],
 			data=data_, user_id=msg['user_id'],
 			room_id=msg['room_id'])
 			self.user_id = msg['user_id']
 			self.room_id = msg['room_id']
-		else:
-			if 'user_id' in msg.keys() and 'room_id':
-				msg_snd = DiscardMsg(cmd=msg['cmd'], 
-				data=data_, user_id=msg['user_id'])
-				self.user_id = msg['user_id']
-			if 'room_id' in msg.keys():
-				msg_snd = DiscardMsg(cmd=msg['cmd'],
-				data=data_, room_id=msg['room_id'])
-				self.room_id = msg['room_id']
-		if 'user_name' in msg.keys():
-			self.user_name = msg['user_name']
 		return DiscardMsg.to_json(msg_snd)
 		
 
@@ -165,12 +166,12 @@ class NetClient(object):
 		while True:
 			msg_recv = self.socket.recv_pyobj()
 			if all(( 'cmd' in msg_recv.keys(), 
-				msg_recv['cmd'] == GameRequest.STOP_GAME.value)):
+				msg_recv.get('cmd') == GameRequest.STOP_GAME)):
 				self.cleanup()
 			msg_snd = self.compose_message_to_server(msg_recv)
-			if msg_recv['dest'] == 'WEB':
+			if msg_recv.get('dest') == MessageDestination.WEB:
 				self.send_to_web_handler(msg_snd, msg_recv)
-			if msg_recv['dest'] == 'GAME':
+			if msg_recv.get('dest') == MessageDestination.GAME:
 				if self.has_wsconn_initialised == False:
 					yield self.init_game_conn()
 				else:
@@ -182,6 +183,7 @@ class NetClient(object):
 		self.socket.send_pyobj(DiscardMsg(
 			cmd=GameStatus.ENDED
 		))
+		self.user_exit = True
 		self.socket.close()
 		self.ctx.term()
 		sys.exit(0)
@@ -195,7 +197,7 @@ if __name__ == '__main__':
 	parser.add_argument('-v', '--verbose',
 		help='Turn on logging')
 	args = parser.parse_args()
-	ui = None
+	ui, t = None, None
 	if args.port:
 		try:
 			ui = CmdUI(args.port)
@@ -210,6 +212,8 @@ if __name__ == '__main__':
 			)
 			TLoop.IOLoop.instance().start()
 		except (SystemExit, KeyboardInterrupt):
-			ui.close_on_panic()
+			if not n.user_exit:
+				ui.close_on_panic()
+			t.join()
 			TLoop.IOLoop.instance().stop()
 			print("NetClient closed")

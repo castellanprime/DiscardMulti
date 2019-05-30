@@ -17,6 +17,11 @@ class NumberOfCardsToDeal(MyEnum):
 	THREE_PLAYER = 6
 	OTHER_PLAYER = 5
 
+class MessageDestination(MyEnum):
+	WEB = 'WEB'
+	GAME = 'GAME'
+
+
 
 class RoomRequest(MyEnum):
 	GET_ROOMATES = 'GET_ROOMATES'

@@ -150,9 +150,13 @@ class RoomServer(object):
                     )
                     self.send_reply(user_id, room_id, resp)
         elif cmd == RoomRequest.GAME_REQUEST:
+            data_ = { key:value
+                        for key, value in msg.items()
+                        if DiscardMsg.is_not_a_command_type(key)
+		    }
             resp = DiscardMsg(
                 cmd=GameRequest[msg.get_payload_value('next_cmd')],
-                data=msg.get_payload_value('data')
+                data=data_
             )
             self.game_socket.send_pyobj(resp)
                         

@@ -163,7 +163,7 @@ class Server(web.Application):
 if __name__ == 'main':
     log.enable_pretty_logging()
     options.parse_command_line()
-    app = None
+    app, t = None, None
     try:
         game_server = GameServer(game_server_port)
         import threading
@@ -175,5 +175,6 @@ if __name__ == 'main':
         ioloop.IOLoop.instance().start()
     except(SystemExit, KeyboardInterrupt):
         app.close()
+        t.join()
         ioloop.IOLoop.instance().stop()
         print('Server closed')

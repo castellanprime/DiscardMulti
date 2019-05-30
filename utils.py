@@ -4,6 +4,8 @@
 
 import uuid
 import jsonpickle
+from enum import auto
+from serverenums import MyEnum
 
 class PlayerGameConn(object):
 	def __init__(self, user_id, 
@@ -44,76 +46,87 @@ class RoomPlayer(object):
 		return jsonpickle.decode(json_obj)
 
 class DiscardMsg(object):
-	def __init__(self, cmd, prompt=None, 
-			data=None, next_cmd=None,
-			return_type=None, extra_data=None,
-			flag=None, msg_id=None,
-			user_id=None, room_id=None):
+	class __PayloadTypes(MyEnum):
+		"""
+		These are the allowed values for keys
+		for payloads between client and server
+
+		PROMPT: This sends what is displayed
+		on the client(mainly for the console version)
+		of the game). Might not be used on the
+		the GUI version of the game
+
+		DATA: This is used to send data
+		to the server from the client
+
+		EXTRA_DATA: This is used to send
+		options to the client from the server. This
+		is used for validation on the client before
+		client sends messages to the server. The
+		server can also send the latest top of the
+		deck here
+
+		NEXT_CMD: This is the cmd for the
+		rules engine on the client used to dispatch
+		different actions
+
+		FLAG: This is used for continuation
+		purposes and is used to pause execution in
+		the game engine on the server
+
+		MSG_ID: This is automatically on
+		sending of messages, if not user specified.
+
+		USER_ID: This will removed in later
+		versions
+
+		ROOM_ID: This helps in the delivery
+		of the message to a room on the server
+
+		DEST: This means this message is bound for the
+		GameHandler or the RoomHandler
+		"""
+		NEXT_CMD = auto()
+		DATA = auto()
+		PROMPT = auto()
+		EXTRA_DATA = auto()
+		RETURN_TYPE = auto()
+		FLAG = auto()
+		DEST = auto()
+		ROOM_ID = auto()
+		USER_ID = auto()
+		GAME_ID = auto()
+
+	def __init__(self, cmd, **kwargs):
+
 		"""
 		This is the main message used to 
 		communicated between the servers and
 		clients
 
-		:param cmd: The command that will be run
-		on the server or return command 
-		on the client
-		
-		:param prompt: This sends what is displayed
-		on the client(mainly for the console version)
-		of the game). Might not be used on the
-		the GUI version of the game 
-		
-		:param data: This is used to send data
-		to the server from the client
-		
-		:param extra_data: This is used to send 
-		options to the client from the server. This 
-		is used for validation on the client before
-		client sends messages to the server. The
-		server can also send the latest top of the 
-		deck here
-
-		:param next_cmd: This is the cmd for the 
-		rules engine on the client used to dispatch
-		different actions
-
-		:param flag: This is used for continuation
-		purposes and is used to pause execution in 
-		the game engine on the server
-
-		:param msg_id: This is automatically on 
-		sending of messages, if not user specified.  
-		
-		:param user_id: This will removed in later
-		versions
-
-		:param room_id: This helps in the delivery
-		of the message to a room on the server 
+		A message is divided into two parts:
+		header(cmd, msg_id), body(payload)
 		"""
+
 		self.cmd = cmd 
 		self.__payload = {}
-		self.msg_id = msg_id if msg_id else uuid.uuid4().hex
-		if prompt:
-			self.__payload['prompt'] = prompt 
-		if data:	# for client tom server
-			self.__payload['data'] = data
-		if extra_data:	# for server to client
-			self.__payload['extra_data'] = extra_data
-		if return_type:
-			self.__payload['return_type'] = return_type
-		if flag:
-			self.__payload['flag'] = flag 
-		if next_cmd:
-			self.__payload['next_cmd'] = next_cmd
-		if room_id:
-			self.__payload['room_id'] = room_id
-		if user_id:
-			self.__payload['user_id'] = user_id
+		self.msg_id = uuid.uuid4().hex
+		for key, value in kwargs.items():
+			if key.upper() in DiscardMsg.__PayloadTypes.__members__.keys():
+				self.__payload[key]=value
 
 	def get_payload_value(self, value):
 		for key in self.__payload.keys():
 			if key == value:
 				return self.__payload[value]
+
+	@classmethod
+	def is_not_payload_type(cls, value):
+		return value.upper() in cls.__PayloadTypes.__members__.keys()
+
+	@classmethod
+	def is_not_a_command_type(cls, value):
+		return all([value.upper() != cls.__PayloadTypes.NEXT_CMD, value != 'cmd'])
 
 	def __eq__(self, other):
 		if not isinstance(other, DiscardMsg):
