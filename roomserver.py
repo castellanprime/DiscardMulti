@@ -2,13 +2,9 @@ import logging
 from uuid import uuid4
 from serverenums import (
     RoomStatus,
-    RoomRequest,
-    ClientResponse,
-    GameStatus,
-    GameRequest
+    GameStatus
 )
-from utils import DiscardMsg
-
+from gamemessage import DiscardMsg
 
 class Room(object):
     def __init__(self, room_name, num_of_players, room_id):
@@ -16,8 +12,17 @@ class Room(object):
         self.num_of_players = num_of_players
         self.room_id = room_id
         self.players = []
+        self._game_id = None
         self.room_status = RoomStatus.OPEN
         self.game_status = GameStatus.NOT_STARTED
+
+    @property
+    def game_id(self):
+        return self._game_id
+
+    @game_id.setter
+    def game_id(self, value):
+        self._game_id = value
 
     def add_player(self, user_name, user_id):
         self.players.append(dict(
@@ -56,13 +61,10 @@ class Room(object):
                     player.wbsocket = game_conn
                 break
 
-    def add_game(self, game_id):
-        self.game_id = game_id
-
     def can_join(self, user_id):
         self.toggle_room_status()
         player = [player for player in self.players if player.get('user_id') == user_id]
-        return not player[0] and self.is_open()
+        return not player and self.is_open()    # if can find a player and the room is open
 
     def get_num_of_players_remaining(self):
         return self.num_of_players - len(self.players)
@@ -76,8 +78,7 @@ class RoomServer(object):
 
     def add_room(self, room_name, num_of_players):
         room_id = uuid4().hex
-        room = Room(room_name, num_of_players, room_id)
-        self.rooms.append(room)
+        self.rooms.append(Room(room_name, num_of_players, room_id))
         return room_id
 
     def add_player(self, room_id, user_id, user_name):
@@ -101,7 +102,7 @@ class RoomServer(object):
                 room.update_user(user_id, user_name=None, game_conn=game_conn)
                 self._logger.info('Added websocket conn for player {0}'.format(user_id))
                 resp = DiscardMsg(
-                    cmd=ClientResponse.ADDED_GAME_CONN.value,
+                    cmd=DiscardMsg.Response.ADDED_NEW_GAME_CONN,
                     prompt='Added websocket conn for player {0}'.format(user_id)
                 )
                 self.send_reply(user_id, room_id, resp, broadcast=True)
@@ -120,15 +121,15 @@ class RoomServer(object):
                             player.wbsocket.write_message(DiscardMsg.to_json(msg))
 
     def handle_msg(self, msg):
-        cmd = RoomRequest[msg.cmd]
-        room_id = msg.get_payload_value('room_id')
-        user_id = msg.get_payload_value('user_id')
-        if cmd == RoomRequest.START_GAME:  # it was initially ARE ROOMATES IN GAME
+        msg_recv = DiscardMsg.to_obj(msg)
+        room_id = msg_recv.get_payload_value('room_id')
+        user_id = msg_recv.get_payload_value('user_id')
+        if msg_recv.cmd == DiscardMsg.Request.START_GAME:  # it was initially ARE ROOMATES IN GAME
             for room in self.rooms:
                 if room.room_id == room_id:
                     if room.is_open():
                         resp = DiscardMsg(
-                            cmd=ClientResponse.START_GAME_REP.value,
+                            cmd=DiscardMsg.Response.START_GAME,
                             prompt='Waiting for {} players to join'.format(str(room.get_num_of_players_remaining()))
                         )
                         self._logger.info('Waiting for {} players to join'.format(str(room.get_num_of_players_remaining())))
@@ -138,27 +139,20 @@ class RoomServer(object):
                         room.game_status = GameStatus.IS_STARTING
                         players = [item.user_id for item in room.players]
                         self.game_socket.send_pyobj(DiscardMsg(
-                            cmd=RoomRequest.START_GAME,
-                            data=dict(
-                                players=players,
-                                room_id=room_id
-                            )
+                            cmd=DiscardMsg.Request.START_GAME,
+                            players=players,
+                            room_id=room_id
                         ))
                     resp = DiscardMsg(
-                        cmd=ClientResponse.START_GAME_REP.value,
-                        prompt=ClientResponse.GAME_IS_STARTING_REP.value
+                        cmd=DiscardMsg.Response.START_GAME,
+                        prompt= DiscardMsg.Response.GAME_IS_STARTING
                     )
                     self.send_reply(user_id, room_id, resp)
-        elif cmd == RoomRequest.GAME_REQUEST:
-            data_ = { key:value
-                        for key, value in msg.items()
-                        if DiscardMsg.is_not_a_command_type(key)
-		    }
-            resp = DiscardMsg(
-                cmd=GameRequest[msg.get_payload_value('next_cmd')],
-                data=data_
-            )
-            self.game_socket.send_pyobj(resp)
+        elif msg_recv.cmd == DiscardMsg.Request.GAME_REQUEST:
+            self.game_socket.send_pyobj(DiscardMsg(
+                cmd=msg_recv.get_payload_value('next_cmd'),
+                **msg_recv.get_payload_value('data')
+            ))
                         
     def get_all_rooms(self):
         return [
@@ -170,12 +164,13 @@ class RoomServer(object):
         ]
 
     def get_all_roomates(self, user_id, room_id):
-        roomates = []
+        roommates = []
         for room in self.rooms:
             if room.room_id == room_id:
-                roomates = [player for player in room.players if player.user_id != user_id]
+                roommates = [dict(user_id=player.user_id, nickname=player.user_name)
+                    for player in room.players if player.user_id != user_id]
                 break
-        return roomates
+        return roommates
 
     def remove_game_conn(self, user_id):
         for room in self.rooms:

@@ -5,11 +5,10 @@
 
 import zmq, sys
 from uuid import uuid4
-from utils import DiscardMsg
+from gamemessage import DiscardMsg
 from gamecontroller import GameController
 from serverenums import (
     GameRequest,
-    ClientResponse,
     GameStatus
 )
 
@@ -33,11 +32,10 @@ class GameServer(object):
         for player in msg.get_payload_value('players'):
             self.socket.send_pyobj(
                 DiscardMsg(
-                    cmd=ClientResponse.GAME_HAS_STARTED_REP,
-                    data=dict(
-                        cards=g.get_player_cards_for(player),
-                        game_id=g_id
-                    ),
+                    cmd=DiscardMsg.Response.START_GAME,
+                    prompt=DiscardMsg.Response.GAME_HAS_STARTED,
+                    cards=g.get_player_cards_for(player),
+                    game_id=g_id,
                     extra_data=g.get_top_card(),
                     room_id=msg.get_payload_value('room_id')
                 )
@@ -49,24 +47,32 @@ class GameServer(object):
     def set_initial_player(self, msg):
         found_index = self._find_game(msg)
         found = self.games[found_index]
-        found.set_initial_player(msg.get_payload_value('player'))
+        found.set_initial_player(msg.get_payload_value('user_id'))
         self.games[found_index] = found
         self.socket.send_pyobj(
-            DiscardMsg(cmd=ClientResponse.SET_INITIAL_PLAYER_REP, 
-                data=msg.get_payload_value('player'),
+            DiscardMsg(cmd=DiscardMsg.Response.SET_INITIAL_PLAYER,
+                prompt='{0} is now the initial player'.format(msg.get_payload_value('user_name')),
+                data=msg.get_payload_value('user_id'),
                 room_id=msg.get_payload_value('room_id')
             )
         )
 
     def get_game_status(self, msg):
-        pass
+        found_index = self._find_game(msg)
+        found = self.games[found_index]
+        current_player = found.get_current_player()
+        self.socket.send_pyobj(
+            DiscardMsg(cmd=DiscardMsg.Response.GET_GAME_STATUS,
+                user_id=current_player
+            )
+        )
 
     def play_move(self, msg):
         found_index = self._find_game(msg)
         found = self.games[found_index]
         found.play_move(msg.get_payload_value('player'), msg.get_payload_value('card'))
         self.socket.send_pyobj(
-            DiscardMsg(cmd=ClientResponse.PLAY_MOVE_REP, data=dict(
+            DiscardMsg(cmd=DiscardMsg.Response.PLAY_MOVE, data=dict(
                 current_player=found.get_current_player(),
                 current_deck=found.get_current_deck()
             ))

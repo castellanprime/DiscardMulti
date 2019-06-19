@@ -8,9 +8,12 @@ RoomStatus is the enum for managing the room
 from enum import Enum
 
 class MyEnum(Enum):
-
 	def __str__(self):
 		return "({0}={1})".format(self.__class__.__name__, self.name)
+
+class NoValue(Enum):
+	def __repr__(self):
+		return '<{0}.{1}>'.format(self.__class__.__name__, self.name)
 
 class NumberOfCardsToDeal(MyEnum):
 	TWO_PLAYER = 8
@@ -20,8 +23,7 @@ class NumberOfCardsToDeal(MyEnum):
 class MessageDestination(MyEnum):
 	WEB = 'WEB'
 	GAME = 'GAME'
-
-
+	UNICAST = 'UNICAST'
 
 class RoomRequest(MyEnum):
 	GET_ROOMATES = 'GET_ROOMATES'

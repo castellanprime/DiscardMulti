@@ -10,6 +10,7 @@ from serverenums import (
 class Player(object):
     def __init__(self, user_id, model):
         self._user_id = user_id
+        self._game_id = None
         self._last_card = False
         self._room_id = None
         self._nickname = None
@@ -22,6 +23,14 @@ class Player(object):
     @room_id.setter
     def room_id(self, value):
         self._room_id = value
+
+    @property
+    def game_id(self):
+        return self._game_id
+
+    @game_id.setter
+    def game_id(self, value):
+        self._game_id = value
 
     @property
     def user_id(self):
@@ -137,12 +146,13 @@ class Human(Player):
 
 
     def play(self):
-        return {
-            'cmd': RoomRequest.GAME_REQUEST,
-            'next_cmd': GameRequest.GET_GAME_STATUS,
-            'room_id':self.room_id,
-            'user_id':self.user_id
-        }
+        return dict(
+            cmd=RoomRequest.GAME_REQUEST,
+            next_cmd=GameRequest.GET_GAME_STATUS,
+            room_id=self.room_id,
+            user_id=self.user_id,
+            game_id=self.game_id
+        )
 
     # def play(self):
     #     choice = None

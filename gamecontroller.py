@@ -12,6 +12,7 @@ class GameController(object):
 		self._logger = logging.getLogger(__name__)
 		self.model = ServerModel(players)
 		self.game_engine = DiscardGame(self)
+		self.has_initial_player = False
 		self.init_cards()
 		self.current_player = None
 		self.winner = None
@@ -26,7 +27,10 @@ class GameController(object):
 		return self.model.get_current_player()
 
 	def set_initial_player(self, player):
-		self.model.set_current_player(player)
+		if not self.has_initial_player:
+			self.model.set_current_player(player)
+		else:
+			self.get_current_player()
 
 	# Set the player state here
 	def deal(self):

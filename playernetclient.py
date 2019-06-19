@@ -23,7 +23,7 @@ from serverenums import (
 	GameStatus,
 	MessageDestination
 )
-from utils import DiscardMsg
+from gamemessage import DiscardMsg
 from playercmdui import CmdUI
 
 
@@ -86,30 +86,12 @@ class NetClient(object):
 			})
 		return DiscardMsg.to_obj(msg_recv)
 
-	# rewrite
 	def compose_message_to_server(self, msg):
 		if 'user_name' in msg.keys():
-			self.user_name = msg['user_name']
-		data_ = { key:value 
-					for key, value in msg.items()
-					if DiscardMsg.is_not_payload_type(key)
-		}
-		self._logger.info('Message to compose: '.format(str(data_)))
-		msg_snd = None
-		if all(['user_id' in msg.keys(), 'room_id' not in msg.keys()]):
-			msg_snd = DiscardMsg(cmd=msg['cmd'],
-			data=data_, user_id=msg['user_id'])
-			self.user_id = msg['user_id']
-		elif all(['room_id' in msg.keys(), 'user_id' not in msg.keys()]):
-			msg_snd = DiscardMsg(cmd=msg['cmd'],
-			data=data_, room_id=msg['room_id'])
-			self.room_id = msg['room_id']
-		else:
-			msg_snd = DiscardMsg(cmd=msg['cmd'],
-			data=data_, user_id=msg['user_id'],
-			room_id=msg['room_id'])
-			self.user_id = msg['user_id']
-			self.room_id = msg['room_id']
+			self.user_name = msg.get('user_name')
+		if 'room_id' in msg.keys():
+			self.room_id = msg.get('room_id')
+		msg_snd = DiscardMsg(**msg)
 		return DiscardMsg.to_json(msg_snd)
 		
 
@@ -131,19 +113,22 @@ class NetClient(object):
 	def poll_for_connections(self):
 		self._logger.info('Polling for connections')
 		msg_snd = {
-			'cmd':RoomRequest.START_GAME.value,
+			'cmd':RoomRequest.START_GAME,
 			'room_id':self.room_id, 
 			'user_id':self.user_id
 		}
 		while True:
-			if self.has_wsconn_initialised == True:	
-				yield self.send_with_websocket(msg_snd)
-			msg_recv = yield self.read_with_websocket()
+			if self.has_wsconn_initialised:
+				yield self.send_with_websocket(
+					DiscardMsg.to_json(DiscardMsg(**msg_snd))
+				)
+			msg_ = yield self.read_with_websocket()
+			msg_recv = DiscardMsg.to_obj(msg_)
 			self._logger.info(msg_recv.get_payload_value('prompt'))
 			if self.has_wsconn_initialised == False:
 				self.has_wsconn_initialised = True
 			if (msg_recv.get_payload_value('prompt') ==
-				ClientResponse.GAME_HAS_STARTED_REP.value):
+				DiscardMsg.Response.GAME_HAS_STARTED):
 				self.socket.send_pyobj(msg_recv)
 				break
 
@@ -165,8 +150,7 @@ class NetClient(object):
 		self._logger.info('Communication loop')
 		while True:
 			msg_recv = self.socket.recv_pyobj()
-			if all(( 'cmd' in msg_recv.keys(), 
-				msg_recv.get('cmd') == GameRequest.STOP_GAME)):
+			if msg_recv.get('cmd') == GameRequest.STOP_GAME:
 				self.cleanup()
 			msg_snd = self.compose_message_to_server(msg_recv)
 			if msg_recv.get('dest') == MessageDestination.WEB:
@@ -180,7 +164,7 @@ class NetClient(object):
 					self.socket.send_pyobj(msg_recv)
 
 	def cleanup(self):
-		self.socket.send_pyobj(DiscardMsg(
+		self.socket.send_pyobj(dict(
 			cmd=GameStatus.ENDED
 		))
 		self.user_exit = True
@@ -207,13 +191,15 @@ if __name__ == '__main__':
 			n = NetClient(args.port, 
 				"http://localhost:8888/room",
 				"ws://localhost:8888/game")
-			TLoop.IOLoop.instance().add_callback(
-				n.communicate_with_server
-			)
-			TLoop.IOLoop.instance().start()
+			# TLoop.IOLoop.instance().add_callback(
+			# 	n.communicate_with_server
+			# )
+			# TLoop.IOLoop.instance().start()
+			TLoop.IOLoop.current().spawn_callback(n.communicate_with_server)
+			TLoop.IOLoop.current().start()
 		except (SystemExit, KeyboardInterrupt):
 			if not n.user_exit:
 				ui.close_on_panic()
 			t.join()
-			TLoop.IOLoop.instance().stop()
+			TLoop.IOLoop.current().stop()
 			print("NetClient closed")

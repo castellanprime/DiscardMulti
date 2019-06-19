@@ -16,12 +16,7 @@ from tornado import (
     web, options, httpserver,
     ioloop, websocket, log
 )
-from serverenums import (
-    RoomRequest,
-    GameRequest,
-    ClientResponse
-)
-from utils import DiscardMsg
+from gamemessage import DiscardMsg
 
 ###
 # set up logging to stdout
@@ -33,7 +28,6 @@ root_logger.addHandler(stream_handler)
 context = Context.instance()
 game_server_port = 5556
 
-
 class RoomHandler(web.RequestHandler):
     def initialize(self, controller, logger):
         self.room_server = controller
@@ -42,27 +36,27 @@ class RoomHandler(web.RequestHandler):
     def write_error(self, status_code, **kwargs):
         err_cls, err, traceback = kwargs['exc_info']
         if err.log_message:
-            msg_ = DiscardMsg(cmd=ClientResponse.ERROR,
+            msg_ = DiscardMsg(cmd=DiscardMsg.Response.ERROR,
                               data=err.log_message)
             self.write(DiscardMsg.to_json(msg_))
 
     def get(self):
         rep = self.get_query_argument('cmd')
-        cmd = RoomRequest[rep]
+        cmd = DiscardMsg.Request[rep]
         msg_ = {}
-        if cmd == RoomRequest.GET_ROOMATES:
+        if cmd == DiscardMsg.Request.GET_ROOMMATES:
             user_id = self.get_query_argument('user_id')
             room_id = self.get_query_argument('room_id')
             list_of_roomates = self.room_server.get_all_roomates(user_id,
                         room_id)
             msg_ = DiscardMsg(
-                cmd=ClientResponse.GET_ROOMATES_REP.value,
+                cmd=DiscardMsg.Response.GET_ROOMMATES,
                 data=list_of_roomates
             )
-        elif cmd == RoomRequest.GET_ROOMS:
+        elif cmd == DiscardMsg.Request.GET_ROOMS:
             list_of_rooms = self.room_server.get_all_rooms()
             msg_ = DiscardMsg(
-                cmd=ClientResponse.GET_ROOMS_REP.value,
+                cmd=DiscardMsg.Response.GET_ROOMS,
                 data=list_of_rooms
             )
         self.write(DiscardMsg.to_json(msg_))
@@ -71,31 +65,29 @@ class RoomHandler(web.RequestHandler):
         recv_data = DiscardMsg.to_obj(self.request.body)
         self._logger.info('Object received: {0}'.format(recv_data))
         user_id = recv_data.get_payload_value('user_id')
-        cmd_str = recv_data.cmd
-        cmd = RoomRequest[cmd_str]
+        cmd = recv_data.cmd
         msg_ = {}
-        if cmd == RoomRequest.CREATE_A_ROOM:
-            user_name = recv_data.get_payload_value('data')['user_name']
-            num_of_players = recv_data.get_payload_value('data')['num_of_players']
-            room_name = recv_data.get_payload_value('data')['room_name']
+        if cmd == DiscardMsg.Request.CREATE_A_ROOM:
+            user_name = recv_data.get_payload_value('user_name')
+            num_of_players = recv_data.get_payload_value('num_of_players')
+            room_name = recv_data.get_payload_value('room_name')
             room_id = self.room_server.create_room(num_of_players, room_name)
             self.room_server.add_player(room_id, user_id, user_name)
             msg_ = DiscardMsg(
-                cmd=ClientResponse.CREATE_A_ROOM_REP.value,
+                cmd=DiscardMsg.Response.CREATE_A_ROOM,
                 data=room_id
             )
             self.write(DiscardMsg.to_json(msg_))
-        elif cmd == RoomRequest.JOIN_ROOM:
+        elif cmd == DiscardMsg.Request.JOIN_ROOM:
             room_id = recv_data.get_payload_value('room_id')
-            user_name = recv_data.get_payload_value('data')['user_name']
+            user_name = recv_data.get_payload_value('user_name')
             if self.room_server.can_join(room_id, user_id):
                 self.room_server.add_player(room_id, user_id, user_name)
                 self._logger.info('You have been added to room: {0}'.format(str(room_id)))
                 msg_ = DiscardMsg(
-                    cmd=ClientResponse.JOIN_ROOM_REP.value,
+                    cmd=DiscardMsg.Response.JOIN_ROOM,
                     prompt='You have been added to room: {0}'.format(str(room_id))
                 )
-                # this should be a broadcast
                 self.write(DiscardMsg.to_json(msg_))
             else:
                 raise web.HTTPError(status_code=500, 
@@ -128,7 +120,7 @@ class GameHandler(websocket.WebSocketHandler):
     @classmethod
     def publish_message(cls, msg):
         msg_ = GameHandler.room_server.game_socket.recv_pyobj(msg)
-        room_id = msg_.get_payload_value('extra_data')['room_id']
+        room_id = msg_.get_payload_value('room_id')
         for room in GameHandler.room_server.rooms:
             if room.room_id == room_id:
                 for player in room.players:
@@ -138,7 +130,6 @@ class GameHandler(websocket.WebSocketHandler):
     def on_close(self):
         GameHandler.room_server.remove_game_conn(self._client_id)
         if GameHandler.room_server.shutdown():
-            GameHandler.room_server.handle_msg(DiscardMsg(cmd=GameRequest.STOP_GAME))
             sys.exit(0)
 
 class Server(web.Application):
@@ -158,7 +149,7 @@ class Server(web.Application):
         web.Application.__init__(self, handlers)
 
     def close(self):
-        self.room_server.handle_msg(DiscardMsg(cmd=GameRequest.STOP_GAME))
+        self.room_server.handle_msg(DiscardMsg(cmd=DiscardMsg.Request.STOP_GAME))
 
 if __name__ == 'main':
     log.enable_pretty_logging()
@@ -172,9 +163,9 @@ if __name__ == 'main':
         app = Server()
         server = httpserver.HTTPServer(app)
         server.listen(8888)
-        ioloop.IOLoop.instance().start()
+        ioloop.IOLoop.current().start()
     except(SystemExit, KeyboardInterrupt):
         app.close()
         t.join()
-        ioloop.IOLoop.instance().stop()
+        ioloop.IOLoop.current().stop()
         print('Server closed')

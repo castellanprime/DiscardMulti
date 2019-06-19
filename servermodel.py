@@ -76,7 +76,7 @@ class ServerModel(object):
 
 	def find_player(self, player):
 		for cur_player in self.players:
-			if cur_player.get_nick_name() == player:
+			if cur_player == player:
 				self._logger.info("Found player")
 				return cur_player
 
@@ -84,16 +84,16 @@ class ServerModel(object):
 		self.current_player = self.find_player(player)
 		if self.current_player is None:
 			return None
-		cur_play = "Current player: " + self.current_player.get_nick_name()
+		cur_play = "Current player: " + self.current_player
 		self._logger.debug(cur_play)
 		self.game_state[self.current_player].player_state = PlayerState.PLAYING
 		self.set_last_played()
 		if len(self.players) > 2:
 			player_to_pause = self.get_player_who_played_just_before(self.last_played)
-			st = player_to_pause.get_nick_name() + " state was " + str(self.game_state[player_to_pause].player_state)
+			st = player_to_pause + " state was " + str(self.game_state[player_to_pause].player_state)
 			self._logger.info(st) 
 			self.game_state[player_to_pause].player_state = PlayerState.PAUSED
-			st = player_to_pause.get_nick_name() + " state is " + str(self.game_state[player_to_pause].player_state)
+			st = player_to_pause + " state is " + str(self.game_state[player_to_pause].player_state)
 			self._logger.info(st)
 		else:
 			self.game_state[self.last_played].player_state = PlayerState.PAUSED
