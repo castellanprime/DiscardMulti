@@ -52,7 +52,7 @@ class GameServer(object):
         self.socket.send_pyobj(
             DiscardMsg(cmd=DiscardMsg.Response.SET_INITIAL_PLAYER,
                 prompt='{0} is now the initial player'.format(msg.get_payload_value('user_name')),
-                data=msg.get_payload_value('user_id'),
+                user_id=msg.get_payload_value('user_id'),
                 room_id=msg.get_payload_value('room_id')
             )
         )
@@ -63,7 +63,8 @@ class GameServer(object):
         current_player = found.get_current_player()
         self.socket.send_pyobj(
             DiscardMsg(cmd=DiscardMsg.Response.GET_GAME_STATUS,
-                user_id=current_player
+                user_id=current_player,
+                delivery=msg.get_payload_value('delivery')
             )
         )
 

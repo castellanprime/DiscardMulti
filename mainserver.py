@@ -16,6 +16,7 @@ from tornado import (
     web, options, httpserver,
     ioloop, websocket, log
 )
+from serverenums import MessageDestination
 from gamemessage import DiscardMsg
 
 ###
@@ -123,9 +124,15 @@ class GameHandler(websocket.WebSocketHandler):
         room_id = msg_.get_payload_value('room_id')
         for room in GameHandler.room_server.rooms:
             if room.room_id == room_id:
-                for player in room.players:
+                if msg.get_payload_value('delivery') == MessageDestination.UNICAST:
+                    player = [player for player in room.players
+                        if player.get('user_id') == msg_.get_payload_value('user_id')][0]
                     wbsocket = player.get('wbsocket')
                     wbsocket.write_message(DiscardMsg.to_json(msg_))
+                else:
+                    for player in room.players:
+                        wbsocket = player.get('wbsocket')
+                        wbsocket.write_message(DiscardMsg.to_json(msg_))
 
     def on_close(self):
         GameHandler.room_server.remove_game_conn(self._client_id)

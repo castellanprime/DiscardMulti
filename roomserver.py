@@ -64,7 +64,7 @@ class Room(object):
     def can_join(self, user_id):
         self.toggle_room_status()
         player = [player for player in self.players if player.get('user_id') == user_id]
-        return not player and self.is_open()    # if can find a player and the room is open
+        return not player[0] and self.is_open()    # if can find a player and the room is open
 
     def get_num_of_players_remaining(self):
         return self.num_of_players - len(self.players)

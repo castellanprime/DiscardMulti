@@ -17,9 +17,7 @@ from zmq.eventloop.future import Context
 from zmq.eventloop.zmqstream import ZMQStream
 from zmq.eventloop import ioloop
 from serverenums import (
-	RoomRequest,
 	GameRequest,
-	ClientResponse,
 	GameStatus,
 	MessageDestination
 )
@@ -113,7 +111,7 @@ class NetClient(object):
 	def poll_for_connections(self):
 		self._logger.info('Polling for connections')
 		msg_snd = {
-			'cmd':RoomRequest.START_GAME,
+			'cmd':DiscardMsg.Request.START_GAME,
 			'room_id':self.room_id, 
 			'user_id':self.user_id
 		}
