@@ -13,9 +13,8 @@ import sys
 import argparse
 
 from tornado import ioloop as TLoop, websocket, gen
-from zmq.eventloop.future import Context
+# from zmq.eventloop.future import Context
 from zmq.eventloop.zmqstream import ZMQStream
-from zmq.eventloop import ioloop
 from serverenums import (
 	GameRequest,
 	GameStatus,
@@ -145,7 +144,7 @@ class NetClient(object):
 
 	@gen.coroutine
 	def communicate_with_server(self):
-		self._logger.info('Communication loop')
+		self._logger.info('Netclient - Communication loop')
 		while True:
 			msg_recv = self.socket.recv_pyobj()
 			if msg_recv.get('cmd') == GameRequest.STOP_GAME:
@@ -167,7 +166,7 @@ class NetClient(object):
 		))
 		self.user_exit = True
 		self.socket.close()
-		self.ctx.term()
+		ctx.term()
 		sys.exit(0)
 
 

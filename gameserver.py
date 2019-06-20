@@ -17,8 +17,9 @@ class GameServer(object):
     def __init__(self, port):
         self.ctx = zmq.Context()
         self.socket = self.ctx.socket(zmq.PAIR)
-        self.db_socket = self.ctx.socket(zmq.PAIR)
-        self.socket.bind('tcp://127.0.0.1:{}'.format(port))
+        print('port: ', port)
+        # self.db_socket = self.ctx.socket(zmq.PAIR)
+        self.socket.bind('tcp://127.0.0.1:{0}'.format(port))
         self.games = []
 
     def create_game(self, msg):
@@ -80,13 +81,16 @@ class GameServer(object):
         )
 
     def close(self):
+        self.socket.send_pyobj(
+            DiscardMsg(cmd=DiscardMsg.Response.STOP_GAME)
+        )
         self.socket.close()
         self.ctx.term()
         sys.exit(0)
 
-    def main(self):
+    def mainMethod(self):
         while True:
-            msg_recv = self.socket.recv_obj()
+            msg_recv = self.socket.recv_pyobj()
             if msg_recv.cmd == GameRequest.START_GAME:
                 self.create_game(msg_recv)
             elif msg_recv.cmd == GameRequest.SET_INITIAL_PLAYER:
@@ -102,4 +106,4 @@ class GameServer(object):
 
 if __name__ == '__main__':
     c = GameServer(5557)
-    c.main()
+    c.mainMethod()

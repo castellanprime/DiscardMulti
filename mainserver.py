@@ -16,7 +16,10 @@ from tornado import (
     web, options, httpserver,
     ioloop, websocket, log
 )
-from serverenums import MessageDestination
+from serverenums import (
+    MessageDestination,
+    GameRequest
+)
 from gamemessage import DiscardMsg
 
 ###
@@ -26,8 +29,9 @@ root_logger.setLevel(logging.INFO)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
 root_logger.addHandler(stream_handler)
-context = Context.instance()
+context = zmq.Context.instance()
 game_server_port = 5556
+
 
 class RoomHandler(web.RequestHandler):
     def initialize(self, controller, logger):
@@ -122,17 +126,18 @@ class GameHandler(websocket.WebSocketHandler):
     def publish_message(cls, msg):
         msg_ = GameHandler.room_server.game_socket.recv_pyobj(msg)
         room_id = msg_.get_payload_value('room_id')
-        for room in GameHandler.room_server.rooms:
-            if room.room_id == room_id:
-                if msg.get_payload_value('delivery') == MessageDestination.UNICAST:
-                    player = [player for player in room.players
-                        if player.get('user_id') == msg_.get_payload_value('user_id')][0]
-                    wbsocket = player.get('wbsocket')
-                    wbsocket.write_message(DiscardMsg.to_json(msg_))
-                else:
-                    for player in room.players:
+        if msg.get_payload_value('cmd') != DiscardMsg.Response.STOP_GAME:
+            for room in GameHandler.room_server.rooms:
+                if room.room_id == room_id:
+                    if msg.get_payload_value('delivery') == MessageDestination.UNICAST:
+                        player = [player for player in room.players
+                            if player.get('user_id') == msg_.get_payload_value('user_id')][0]
                         wbsocket = player.get('wbsocket')
                         wbsocket.write_message(DiscardMsg.to_json(msg_))
+                    else:
+                        for player in room.players:
+                            wbsocket = player.get('wbsocket')
+                            wbsocket.write_message(DiscardMsg.to_json(msg_))
 
     def on_close(self):
         GameHandler.room_server.remove_game_conn(self._client_id)
@@ -143,11 +148,11 @@ class Server(web.Application):
     def __init__(self):
         self._logger = logging.getLogger(__name__)
         self.room_server = RoomServer()
-        client_sock = context.socket(zmq.PAIR)
-        client_sock.connect('tcp://127.0.0.1:{port}'.format(port=game_server_port))
-        stream_sock = ZMQStream(client_sock)
-        stream_sock.on_recv(GameHandler.publish_message)
-        self.room_server.game_socket = stream_sock
+        self.client_sock = context.socket(zmq.PAIR)
+        self.client_sock.connect('tcp://127.0.0.1:{port}'.format(port=game_server_port))
+        self.stream_sock = ZMQStream(self.client_sock)
+        self.stream_sock.on_recv(GameHandler.publish_message)
+        self.room_server.game_socket = self.client_sock
 
         handlers = [
             (r'/game', GameHandler, {'controller': self.room_server, 'logger': self._logger}),
@@ -156,16 +161,23 @@ class Server(web.Application):
         web.Application.__init__(self, handlers)
 
     def close(self):
-        self.room_server.handle_msg(DiscardMsg(cmd=DiscardMsg.Request.STOP_GAME))
+        self.room_server.handle_msg(DiscardMsg.to_json(DiscardMsg(
+            cmd=DiscardMsg.Request.GAME_REQUEST,
+            next_cmd=GameRequest.STOP_GAME)
+        ))
 
-if __name__ == 'main':
+    def close_socket(self):
+        self.room_server.game_socket.close()
+        context.term()
+
+if __name__ == '__main__':
     log.enable_pretty_logging()
     options.parse_command_line()
     app, t = None, None
     try:
         game_server = GameServer(game_server_port)
         import threading
-        t = threading.Thread(target=game_server.main)
+        t = threading.Thread(target=game_server.mainMethod)
         t.start()
         app = Server()
         server = httpserver.HTTPServer(app)
@@ -174,5 +186,6 @@ if __name__ == 'main':
     except(SystemExit, KeyboardInterrupt):
         app.close()
         t.join()
+        app.close_socket()
         ioloop.IOLoop.current().stop()
         print('Server closed')

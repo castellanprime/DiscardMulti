@@ -75,7 +75,7 @@ class CmdUI(object):
 			'\n Choose from these options:',
 			'j) Join an existing room(Recommended)',
 			'c) Create a room',
-			'e) Exit',
+			'q) Exit',
 			'\nSelect option: '
 		])
 
@@ -92,7 +92,7 @@ class CmdUI(object):
 		while True:
 			choice = self.validate_user_entry(
 				input_func_cb = self.get_str_input,
-				input_question_cb = self.landing_page_menu_str(),
+				input_question = self.landing_page_menu_str(),
 				validation_params = ['j', 'c', 'q']
 			)
 			choice = LoopChoices(choice)
@@ -122,7 +122,7 @@ class CmdUI(object):
 		self.print_current_playing()
 		choice = self.validate_user_entry(
 			input_func_cb = self.get_str_input,
-			input_question_cb = CmdUI.game_menu_str(),
+			input_question = CmdUI.game_menu_str(),
 			validation_params = ['h', 'r', 'p','q']
 		)
 		answer=LoopChoices(choice)
@@ -174,7 +174,7 @@ class CmdUI(object):
 		room_name = self.get_str_input("What is the room's name: ")
 		num_of_players = self.validate_user_entry(
 			input_func_cb = self.get_int_input,
-			input_question_cb = CmdUI.room_menu_str(),
+			input_question = CmdUI.room_menu_str(),
 			validation_params = [x for x in range(1, 8)]
 		)
 		num_of_players = num_of_players + 1
@@ -211,7 +211,7 @@ class CmdUI(object):
 			print('The rooms available: ', rooms_str)
 			choice = self.validate_user_entry(
 				input_func_cb = self.get_int_input,
-				input_question_cb = CmdUI.choose_room_menu_str(),
+				input_question = CmdUI.choose_room_menu_str(),
 				validation_params = [x for x in range(len(ls_))]
 			)
 			room = room_list[choice]
@@ -279,7 +279,7 @@ class CmdUI(object):
 		roomates_str = '\n'.join(ls)
 		choice = self.validate_user_entry(
 			input_func_cb = self.get_int_input,
-			input_question_cb = self.choose_player_menu_str(roomates_str),
+			input_question = self.choose_player_menu_str(roomates_str),
 			validation_params = [x for x in range(len(self.current_roomates))]
 		)
 		roomate = self.current_roomates[choice]
@@ -310,6 +310,7 @@ class CmdUI(object):
 
 	# Method of entry
 	def main(self):
+		self._logger.info('CmdUI')
 		self.landing_page_menu()
 		self.create_new_game_conn()
 		self.choose_initial_player()
