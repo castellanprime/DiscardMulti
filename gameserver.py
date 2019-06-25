@@ -3,7 +3,7 @@
 	This holds all the current games
 """
 
-import zmq, sys
+import zmq, sys, logging
 from uuid import uuid4
 from gamemessage import DiscardMsg
 from gamecontroller import GameController
@@ -14,12 +14,13 @@ from serverenums import (
 
 class GameServer(object):
 
-    def __init__(self, port):
-        self.ctx = zmq.Context()
+    def __init__(self):
+        self._logger = logging.getLogger(__name__)
+        self.ctx = zmq.Context.instance()
         self.socket = self.ctx.socket(zmq.PAIR)
-        print('port: ', port)
         # self.db_socket = self.ctx.socket(zmq.PAIR)
-        self.socket.bind('tcp://127.0.0.1:{0}'.format(port))
+        # self.socket.bind('tcp://127.0.0.1:{0}'.format(port))
+        self.socket.bind('inproc://gameserversocket')
         self.games = []
 
     def create_game(self, msg):
@@ -89,8 +90,10 @@ class GameServer(object):
         sys.exit(0)
 
     def mainMethod(self):
+        self._logger.debug('Started Game Server')
         while True:
             msg_recv = self.socket.recv_pyobj()
+            self._logger.debug('Message received by Gameserver: {0}'.format(str(msg_recv)))
             if msg_recv.cmd == GameRequest.START_GAME:
                 self.create_game(msg_recv)
             elif msg_recv.cmd == GameRequest.SET_INITIAL_PLAYER:

@@ -34,6 +34,8 @@ class GameController(object):
 
 	# Set the player state here
 	def deal(self):
+		self._logger.info('Dealing the cards')
+		self._logger.debug('Dealing the cards')
 		players = self.model.players
 		num_of_cards_to_deal = 0
 		if len(players) == 2:

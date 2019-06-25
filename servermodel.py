@@ -61,6 +61,7 @@ class ServerModel(object):
 		self.main_deck.append(normal_deck)
 		self.main_deck.append(special_deck)
 		self.main_deck[:] = [card for deck in self.main_deck for card in deck]
+		self._logger.debug("Created deck")
 		self._logger.info("Created deck")
 
 	def get_current_player(self):
@@ -91,10 +92,10 @@ class ServerModel(object):
 		if len(self.players) > 2:
 			player_to_pause = self.get_player_who_played_just_before(self.last_played)
 			st = player_to_pause + " state was " + str(self.game_state[player_to_pause].player_state)
-			self._logger.info(st) 
+			self._logger.debug(st)
 			self.game_state[player_to_pause].player_state = PlayerState.PAUSED
 			st = player_to_pause + " state is " + str(self.game_state[player_to_pause].player_state)
-			self._logger.info(st)
+			self._logger.debug(st)
 		else:
 			self.game_state[self.last_played].player_state = PlayerState.PAUSED
 			if self.get_last_state() == "SkipCardState":		# if the player just played a skip card
@@ -112,7 +113,7 @@ class ServerModel(object):
 	def init_player_states(self, players):
 		for player in players:
 			self.game_state[player] = State(PlayerState.PAUSED, [], [])
-			self._logger.info("Setting STATE(PAUSED) to player")
+			self._logger.debug("Setting STATE(PAUSED) to player")
 
 	def get_players(self):
 		return self.players

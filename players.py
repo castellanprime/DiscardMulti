@@ -62,7 +62,7 @@ class Player(object):
 
     def set_deck(self, cards):
         for card in cards:
-            self.model.add_card(card)
+            self.model.add_a_card(card)
 
     def has_played_last_card(self):
         return len(self.model.get_hand()) == 0
@@ -72,6 +72,9 @@ class Player(object):
 
     def play(self, message):
         raise NotImplementedError('users must define play to use this base class')
+
+    def __str__(self):
+        return f'<Username={self.nickname}, userid={self.user_id}, roomid={self.room_id}>'
 
 class Computer(Player):
     def __init__(self, user_id, model):
