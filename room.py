@@ -56,10 +56,9 @@ class Room(object):
     def update_user(self, user_id, user_name=None, game_conn=None):
         for player in self.players:
             if player.get('user_id') == user_id:
-                if user_name:
-                    player['user_name'] = user_name
+                player['user_name'] = user_name
+                player['wbsocket'] = game_conn
                 if game_conn:
-                    player['wbsocket'] = game_conn
                     self.toggle_room_status()
                 break
 

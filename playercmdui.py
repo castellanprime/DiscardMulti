@@ -21,12 +21,11 @@ from gamemessage import DiscardMsg
 
 
 class CmdUI(object):
-	def __init__(self):
+	def __init__(self, port):
 		self._logger = logging.getLogger(__name__)
 		self.ctx = zmq.Context()
 		self.socket = self.ctx.socket(zmq.PAIR)
-		self.socket.connect('inproc://uisocket')
-		# self.socket.connect('tcp://127.0.0.1:{}'.format(port))
+		self.socket.connect('tcp://127.0.0.1:{0}'.format(port))
 		self.player = None
 		self.current_player = None
 		self.model = PlayerModel()
@@ -55,7 +54,7 @@ class CmdUI(object):
 	def validate_user_entry(self, input_func_cb, 
 			input_question, validation_params):
 		choice = input_func_cb(input_question)
-		while choice in validation_params is False:
+		while (choice in validation_params) is False:
 			print(f'Error: Option choosen not in valid options={validation_params}')
 			self._logger.debug(f'Error: Option choosen not in valid options={validation_params}')
 			choice = input_func_cb(input_question)
@@ -154,6 +153,8 @@ class CmdUI(object):
 		self.socket.send_pyobj(msg_snd)
 		msg_recv = self.socket.recv_pyobj()
 		self.current_player = msg_recv.get_payload_value('user_id')
+		self._logger.debug(f'Current player={self.current_player}'\
+			f' , current roomates={str(self.current_roomates)}')
 		cur_player = [item.get('nickname') for item in self.current_roomates
 			if self.current_player == item.get('user_id')][0]
 		print('Currently playing: {0}'.format(cur_player))
@@ -255,12 +256,13 @@ class CmdUI(object):
 			print(
 				" ".join(msg_recv.get_payload_value('prompt').name.split('_'))
 			)
-			print("Message received: ", msg_recv)
+			print("Cards Received: ", msg_recv.get_payload_value('cards'))
 			self._logger.debug(f"Received message from the server {str(msg_recv.get_payload_value('prompt'))}")
 			if (msg_recv.get_payload_value('prompt') ==
 					DiscardMsg.Response.GAME_HAS_STARTED):
 				self.player.game_id = msg_recv.get_payload_value('game_id')
 				self.player.set_deck(msg_recv.get_payload_value('cards'))
+				self._logger.debug(f"Cards {str(msg_recv.get_payload_value('cards'))}")
 				self.player.top_card = msg_recv.get_payload_value('extra_data')
 				return
 	
@@ -276,6 +278,7 @@ class CmdUI(object):
 		msg_recv = self.socket.recv_pyobj()
 		self.current_roomates = msg_recv.get_payload_value('roomates')
 		self._logger.debug(f'Received current roomates: {str(self.current_roomates)}')
+		self._logger.info(f'Received current roomates: {str(self.current_roomates)}')
 		roomates = self.current_roomates[:]
 		roomates.append(dict(nickname=self.player.nickname, user_id=self.player.user_id))
 		ls = [str(ind) + ') ' + str(value) 
@@ -287,18 +290,21 @@ class CmdUI(object):
 			validation_params=[x for x in range(len(roomates))]
 		)
 		roomate = roomates[choice]
+		print(f'Chose roomate: {str(roomate)}')
 		self._logger.debug(
 			f'Sent an {GameRequest.SET_INITIAL_PLAYER.name} message to backend' \
-			f'for roomate: {str(roomate)}'
+			f' for roomate: {str(roomate)}' \
+			f' for room: {self.player.room_id}'
 		)
 		self.socket.send_pyobj(dict(
 			cmd=DiscardMsg.Request.GAME_REQUEST,
 			next_cmd=GameRequest.SET_INITIAL_PLAYER,
 			room_id=self.player.room_id,
-			user_id=roomate.user_id,
-			user_name=roomate.nickname,
+			user_id=roomate.get('user_id'),
+			user_name=roomate.get('nickname'),
 			game_id=self.player.game_id,
-			dest=MessageDestination.GAME
+			dest=MessageDestination.GAME,
+			delivery=MessageDestination.UNICAST
 		))
 		msg_recv = self.socket.recv_pyobj()
 		print(msg_recv.get_payload_value('prompt'))

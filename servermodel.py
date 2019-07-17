@@ -78,7 +78,7 @@ class ServerModel(object):
 	def find_player(self, player):
 		for cur_player in self.players:
 			if cur_player == player:
-				self._logger.info("Found player")
+				self._logger.debug("Found player")
 				return cur_player
 
 	def set_current_player(self, player):
@@ -86,7 +86,7 @@ class ServerModel(object):
 		if self.current_player is None:
 			return None
 		cur_play = "Current player: " + self.current_player
-		self._logger.debug(cur_play)
+		print(cur_play)
 		self.game_state[self.current_player].player_state = PlayerState.PLAYING
 		self.set_last_played()
 		if len(self.players) > 2:
@@ -104,7 +104,7 @@ class ServerModel(object):
 
 	def set_last_played(self, player=None):
 		self.last_played = self.get_last_turn(player)
-		st = "Last played :" + self.last_played.get_nick_name()
+		st = "Last played :" + self.last_played
 		self._logger.info(st)
 
 	def get_game_deck(self):
@@ -185,14 +185,14 @@ class ServerModel(object):
 			self.check_if_all_players_are_paused(_player)
 			next_player = self.players[index]
 			if self.game_state[next_player].player_state == PlayerState.PAUSED:
-				st = "Selected next player: " + next_player.get_nick_name()
+				st = "Selected next player: " + next_player
 				self._logger.info(st)
 				return next_player
 			index = (index + 1) % len(self.players) 
 
 	def get_last_turn(self, player=None):
 		"""	Get the last person that played."""
-		self._logger.debug("Getting player who played before this player")
+		self._logger.info("Getting player who played before this player")
 		_player = None
 		if player:
 			_player = player

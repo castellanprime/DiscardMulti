@@ -199,6 +199,6 @@ class Human(Player):
     #         return msg_
     #     else:
     #         print("Do nothing")
-    
+
     def __str__(self):
-        return 'Player: {}'.format(self.nick)
+        return super().__str__()

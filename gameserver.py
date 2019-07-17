@@ -12,6 +12,15 @@ from serverenums import (
     GameStatus
 )
 
+def get_random_port():
+    import socket
+    s = socket.socket()
+    s.bind(("", 0))
+    port = s.getsockname()[1]
+    s.close()
+    return port
+
+
 class GameServer(object):
 
     def __init__(self):
@@ -32,61 +41,97 @@ class GameServer(object):
             game_status = GameStatus.STARTED
         ))
         for player in msg.get_payload_value('players'):
-            self.socket.send_pyobj(
-                DiscardMsg(
-                    cmd=DiscardMsg.Response.START_GAME,
-                    prompt=DiscardMsg.Response.GAME_HAS_STARTED,
-                    cards=g.get_player_cards_for(player),
-                    game_id=g_id,
-                    extra_data=g.get_top_card(),
-                    room_id=msg.get_payload_value('room_id')
+            self.socket.send_string(
+                DiscardMsg.to_json(
+                    DiscardMsg(
+                        cmd=DiscardMsg.Response.START_GAME,
+                        prompt=DiscardMsg.Response.GAME_HAS_STARTED,
+                        cards=g.get_player_cards_for(player),
+                        user_id=player,
+                        game_id=g_id,
+                        extra_data=g.get_top_card(),
+                        room_id=msg.get_payload_value('room_id'),
+                        delivery=msg.get_payload_value('delivery')
+                    )
                 )
             )
 
-    def _find_game(self, msg):
-        return next((index for index, game in self.games if game.g_id == msg.get_payload_value('game_id')), None)
+    def find_game(self, msg):
+        index = next((index for index, game in enumerate(self.games) if game.get('game_id') == msg.get_payload_value('game_id')), None)
+        self._logger.debug(f'Game index : {index}')
+        game_server_obj = self.games[index]
+        game = game_server_obj.get('game')
+        return game_server_obj, game, index
 
     def set_initial_player(self, msg):
-        found_index = self._find_game(msg)
-        found = self.games[found_index]
-        found.set_initial_player(msg.get_payload_value('user_id'))
-        self.games[found_index] = found
-        self.socket.send_pyobj(
-            DiscardMsg(cmd=DiscardMsg.Response.SET_INITIAL_PLAYER,
-                prompt='{0} is now the initial player'.format(msg.get_payload_value('user_name')),
-                user_id=msg.get_payload_value('user_id'),
-                room_id=msg.get_payload_value('room_id')
+        game_server_obj, game, index = self.find_game(msg)
+        cur_player = game.set_initial_player(msg.get_payload_value('user_id'))
+        game_server_obj['game'] = game
+        self.games[index] = game_server_obj
+        if cur_player is None:
+            self.socket.send_string(
+                DiscardMsg.to_json(
+                    DiscardMsg(cmd=DiscardMsg.Response.SET_INITIAL_PLAYER,
+                        prompt='{0} is now the initial player'.format(msg.get_payload_value('user_name')),
+                        user_id=msg.get_payload_value('user_id'),
+                        room_id=msg.get_payload_value('room_id'),
+                        delivery=msg.get_payload_value('delivery')
+                    )
+                )
             )
-        )
+            print('{0} is now the initial player'.format(msg.get_payload_value('user_name')))
+        else:
+            self.socket.send_string(
+                DiscardMsg.to_json(
+                    DiscardMsg(cmd=DiscardMsg.Response.SET_INITIAL_PLAYER,
+                        prompt='{0} is already the initial player'.format(cur_player),
+                        user_id=cur_player,
+                        room_id=msg.get_payload_value('room_id'),
+                        delivery=msg.get_payload_value('delivery')
+                    )
+                )
+            )
+            print('{0} is already the initial player'.format(cur_player))
+        self._logger.debug(f'Sent back a game message for setting the initial player')
 
     def get_game_status(self, msg):
-        found_index = self._find_game(msg)
-        found = self.games[found_index]
-        current_player = found.get_current_player()
-        self.socket.send_pyobj(
-            DiscardMsg(cmd=DiscardMsg.Response.GET_GAME_STATUS,
-                user_id=current_player,
-                delivery=msg.get_payload_value('delivery')
+        game_server_obj, game, _ = self.find_game(msg)
+        current_player = game.get_current_player()
+        self.socket.send_string(
+            DiscardMsg.to_json(
+                DiscardMsg(cmd=DiscardMsg.Response.GET_GAME_STATUS,
+                    user_id=current_player,
+                    game_status=game_server_obj.get('game_status'),
+                    delivery=msg.get_payload_value('delivery')
+                )
             )
         )
+        self._logger.debug(f'Sent back a game message for getting the game status')
 
     def play_move(self, msg):
-        found_index = self._find_game(msg)
-        found = self.games[found_index]
-        found.play_move(msg.get_payload_value('player'), msg.get_payload_value('card'))
+        game_server_obj, game, index = self.find_game(msg)
+        game.play_move(msg.get_payload_value('player'), msg.get_payload_value('card'))
+        game_server_obj['game'] = game
+        self.games[index] = game_server_obj
         self.socket.send_pyobj(
-            DiscardMsg(cmd=DiscardMsg.Response.PLAY_MOVE, data=dict(
-                current_player=found.get_current_player(),
-                current_deck=found.get_current_deck()
-            ))
+            DiscardMsg.to_json(
+                DiscardMsg(cmd=DiscardMsg.Response.PLAY_MOVE,
+                    current_player=game.get_current_player(),
+                    current_deck=game.get_current_deck()
+                )
+            )
         )
+        self._logger.debug(f'Sent back a game message for playing a move')
 
     def close(self):
-        self.socket.send_pyobj(
-            DiscardMsg(cmd=DiscardMsg.Response.STOP_GAME)
+        self.socket.send_string(
+            DiscardMsg.to_json(
+                DiscardMsg(cmd=DiscardMsg.Response.STOP_GAME)
+            )
         )
         self.socket.close()
         self.ctx.term()
+        self._logger.debug(f'Closing game server')
         sys.exit(0)
 
     def mainMethod(self):
@@ -108,5 +153,6 @@ class GameServer(object):
                 self.close()
 
 if __name__ == '__main__':
-    c = GameServer(5557)
+    port = get_random_port()
+    c = GameServer(port)
     c.mainMethod()

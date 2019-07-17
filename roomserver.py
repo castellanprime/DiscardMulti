@@ -34,7 +34,7 @@ class RoomServer(object):
                 if room.can_join(user_id):
                     room.add_player(user_name, user_id)
                     self._logger.debug('Added player {0} to room {1}'.format(user_name, room_id))
-                    self._logger.info('Added player {0} to room {1}'.format(user_name, room_id))
+                    print('Added player {0} to room {1}'.format(user_name, room_id))
                     return True
                 else:
                     return False
@@ -47,14 +47,16 @@ class RoomServer(object):
     def add_game_conn(self, user_id, room_id, game_conn):
         for room in self.rooms:
             if room.room_id == room_id:
-                room.update_user(user_id, user_name=None, game_conn=game_conn)
-                self._logger.debug('Added websocket conn for player {0}'.format(user_id))
-                resp = DiscardMsg(
-                    cmd=DiscardMsg.Response.ADDED_NEW_GAME_CONN,
-                    prompt='Added websocket conn for player {0}'.format(user_id)
-                )
-                self.send_reply_from_roomserver(user_id, room_id, resp, broadcast=True)
-                break
+                for player in room.players:
+                    if player.get('user_id') == user_id:
+                        room.update_user(user_id, user_name=player.get('user_name'), game_conn=game_conn)
+                        self._logger.debug('Added websocket conn for player {0}'.format(user_id))
+                        resp = DiscardMsg(
+                            cmd=DiscardMsg.Response.ADDED_NEW_GAME_CONN,
+                            prompt='Added websocket conn for player {0}'.format(user_id)
+                        )
+                        self.send_reply_from_roomserver(user_id, room_id, resp, broadcast=True)
+                        return
 
     def send_reply_from_roomserver(self, user_id, room_id, msg, broadcast=False):
         for room in self.rooms:
@@ -70,8 +72,9 @@ class RoomServer(object):
                         wbsocket = player.get('wbsocket')
                         wbsocket.write_message(DiscardMsg.to_json(msg))
 
-    def send_reply_from_gameserver(self, mgs):
-        msg_recv = self.game_socket.recv_pyobj()
+    def send_reply_from_gameserver(self, msgs):
+        msg_recv = DiscardMsg.to_obj(msgs[0].decode()) # because you receive the msg as a bytes list
+        self._logger.debug(f' Received msg from gameserver(Decoded): {str(msg_recv)}')
         room_id = msg_recv.get_payload_value('room_id')
         if msg_recv.get_payload_value('cmd') != DiscardMsg.Response.STOP_GAME:
             for room in self.rooms:
@@ -81,11 +84,13 @@ class RoomServer(object):
                             if player.get('user_id') == msg_recv.get_payload_value('user_id')][0]
                         wbsocket = player.get('wbsocket')
                         wbsocket.write_message(DiscardMsg.to_json(msg_recv))
+                        print(f"Published a GAME response to player: {player.get('user_id')}")
                         self._logger.debug(f"Published a GAME response to player: {player.get('user_id')}")
                     else:
                         for player in room.players:
                             wbsocket = player.get('wbsocket')
                             wbsocket.write_message(DiscardMsg.to_json(msg_recv))
+                        print('Published GAME responses to all players')
                         self._logger.debug('Published GAME responses to all players')
 
     def handle_msg(self, msg):
@@ -113,7 +118,8 @@ class RoomServer(object):
                         self.game_socket.send_pyobj(DiscardMsg(
                             cmd=GameRequest.START_GAME,
                             players=players,
-                            room_id=room_id
+                            room_id=room_id,
+                            delivery=MessageDestination.UNICAST
                         ))
                     resp = DiscardMsg(
                         cmd=DiscardMsg.Response.START_GAME,
@@ -148,8 +154,10 @@ class RoomServer(object):
         for room in self.rooms:
             for player in room.players:
                 if player.get('user_id') == user_id:
-                    room.update_user(user_id, user_name=None, game_conn=None)
-                    self._logger.info('{0}\'s connection has been dropped'.format(player.get('user_name')))
+                    username = player.get('user_name')
+                    room.update_user(user_id, None, None)
+                    print('{0}\'s connection has been dropped'.format(username))
+                    self._logger.debug('{0}\'s connection has been dropped'.format(username))
                     break
 
     def shutdown(self):

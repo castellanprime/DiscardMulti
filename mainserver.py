@@ -17,16 +17,32 @@ from tornado import (
 from serverenums import GameRequest
 from gamemessage import DiscardMsg
 
-# set up logging to stdout
-root_logger = logging.getLogger()
-file_handler = logging.FileHandler('mainserver.log')
-file_handler.setLevel(logging.DEBUG)
-stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.setLevel(logging.INFO)
-stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
-root_logger.addHandler(stream_handler)
-root_logger.addHandler(file_handler)
+def enable_server_logging():
+    # options.options.logging = None
+    options.options['log_file_prefix'] = 'mainserver.log'
+    options.parse_command_line()
 
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    # access_log = logging.getLogger('tornado.access')
+    # gen_log = logging.getLogger('tornado.general')
+    # app_log = logging.getLogger('tornado.application')
+    # access_log.setLevel(logging.DEBUG)
+    # gen_log.setLevel(logging.DEBUG)
+    # app_log.setLevel(logging.DEBUG)
+
+    # file_handler = logging.FileHandler('mainserver.log')
+    # access_log.addHandler(file_handler)
+    # gen_log.addHandler(file_handler)
+    # app_log.addHandler(file_handler)
+    # access_log.propagate = False
+    # gen_log.propagate = False
+    # app_log.propagate = False
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(logging.Formatter(logging.BASIC_FORMAT))
+    root_logger.addHandler(stream_handler)
 
 class RoomHandler(web.RequestHandler):
     def initialize(self, controller, logger):
@@ -143,8 +159,7 @@ class Server(web.Application):
         self.room_server.context.term()
 
 if __name__ == '__main__':
-    log.enable_pretty_logging()
-    options.parse_command_line()
+    enable_server_logging()
     app, t = None, None
     try:
         game_server = GameServer()

@@ -27,10 +27,15 @@ class GameController(object):
 		return self.model.get_current_player()
 
 	def set_initial_player(self, player):
-		if not self.has_initial_player:
+		cur_player = None
+		if self.has_initial_player is False:
+			self._logger.info(f'Setting initial player to {player}')
 			self.model.set_current_player(player)
+			self.has_initial_player = True
 		else:
-			self.get_current_player()
+			cur_player = self.get_current_player()
+			self._logger.debug(f'Returning already set initial player : {cur_player}')
+		return cur_player
 
 	# Set the player state here
 	def deal(self):
