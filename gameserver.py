@@ -102,6 +102,7 @@ class GameServer(object):
                 DiscardMsg(cmd=DiscardMsg.Response.GET_GAME_STATUS,
                     user_id=current_player,
                     game_status=game_server_obj.get('game_status'),
+                    room_id=msg.get_payload_value('room_id'),
                     delivery=msg.get_payload_value('delivery')
                 )
             )
@@ -117,6 +118,7 @@ class GameServer(object):
             DiscardMsg.to_json(
                 DiscardMsg(cmd=DiscardMsg.Response.PLAY_MOVE,
                     current_player=game.get_current_player(),
+                    room_id=msg.get_payload_value('room_id'),
                     current_deck=game.get_current_deck()
                 )
             )

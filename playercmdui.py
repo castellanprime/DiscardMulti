@@ -28,6 +28,9 @@ class CmdUI(object):
 		self.socket.connect('tcp://127.0.0.1:{0}'.format(port))
 		self.player = None
 		self.current_player = None
+		self.connection_message_sent = False
+		self.chosen_initial_player = False
+		self.connection_created = False
 		self.model = PlayerModel()
 		self.current_roomates = []
 		self.msg_recv = None
@@ -111,6 +114,27 @@ class CmdUI(object):
 		'q -- quit game\n',
 		'Enter your option: '
 		])
+
+	def r_game_menu(self):
+		choice = self.validate_user_entry(
+			input_func_cb=self.get_str_input,
+			input_question=CmdUI.game_menu_str(),
+			validation_params=['h', 'r', 'p', 'q']
+		)
+		answer = LoopChoices(choice)
+		if answer == LoopChoices.PRETTY_HELP:
+			return dict()
+		elif answer == LoopChoices.CMD_RULES:
+			return dict()
+		elif answer == LoopChoices.PLAY_ROUND:
+			return dict(
+				dest=MessageDestination.GAME,
+				**self.player.play()
+			)
+		elif answer == LoopChoices.LEAVE_GAME:
+			return dict(
+				cmd=GameRequest.STOP_GAME
+			)
 
 	def game_menu(self):
 		self.print_current_playing()
@@ -265,7 +289,34 @@ class CmdUI(object):
 				self._logger.debug(f"Cards {str(msg_recv.get_payload_value('cards'))}")
 				self.player.top_card = msg_recv.get_payload_value('extra_data')
 				return
-	
+
+	def r_choose_initial_player(self, msg_recv):
+		self.current_roomates = msg_recv.get_payload_value('roomates')
+		self._logger.debug(f'Received current roomates: {str(self.current_roomates)}')
+		self._logger.info(f'Received current roomates: {str(self.current_roomates)}')
+		roomates = self.current_roomates[:]
+		roomates.append(dict(nickname=self.player.nickname, user_id=self.player.user_id))
+		ls = [str(ind) + ') ' + str(value)
+			  for ind, value in enumerate(roomates)]
+		roomates_str = '\n'.join(ls)
+		choice = self.validate_user_entry(
+			input_func_cb=self.get_int_input,
+			input_question=self.choose_player_menu_str(roomates_str),
+			validation_params=[x for x in range(len(roomates))]
+		)
+		roomate = roomates[choice]
+		print(f'Chose roomate: {str(roomate)}')
+		self.socket.send_pyobj(dict(
+			cmd=DiscardMsg.Request.GAME_REQUEST,
+			next_cmd=GameRequest.SET_INITIAL_PLAYER,
+			room_id=self.player.room_id,
+			user_id=roomate.get('user_id'),
+			user_name=roomate.get('nickname'),
+			game_id=self.player.game_id,
+			dest=MessageDestination.GAME,
+			delivery=MessageDestination.UNICAST
+		))
+
 	def choose_initial_player(self):
 		self.socket.send_pyobj(dict(
 			cmd=DiscardMsg.Request.GET_ROOMMATES.name,
@@ -323,8 +374,130 @@ class CmdUI(object):
 		self._logger.debug(f'Received on exit={str(msg)}')
 		self.close_game()
 
+	def handle_outgoing_messages(self, msg_recv):
+		if all([not self.connection_message_sent,
+				not self.connection_created,
+				not self.chosen_initial_player]):  # send connection message
+			self.socket.send_pyobj(dict(
+				cmd=DiscardMsg.Request.START_GAME.name,
+				room_id=self.player.room_id,
+				user_id=self.player.user_id,
+				user_name=self.player.nickname,
+				dest=MessageDestination.GAME
+			))
+			self.connection_messsage_sent = True
+		if all([self.connection_message_sent,
+				self.connection_created,
+				not self.chosen_initial_player]):
+			self.socket.send_pyobj(dict(
+				cmd=DiscardMsg.Request.GET_ROOMMATES.name,
+				user_id=self.player.user_id,
+				room_id=self.player.room_id,
+				req_type='GET',
+				dest=MessageDestination.WEB
+			))
+			self._logger.debug(f'Sent a {DiscardMsg.Request.GET_ROOMMATES.name} message to the server')
+		if all([self.connection_created,
+				self.connection_message_sent,
+				self.chosen_player]):	# get currently playing player/current game status
+			if msg_recv and msg_recv.get_payload_value('cmd') == DiscardMsg.Response.SET_INITIAL_PLAYER:
+				msg_recv = None			# to handle a potential loop between SET_INITIAL_PLAYER and GET_GAME_STATUS
+			else:
+				self.socket.send_pyobj(dict(
+					cmd=DiscardMsg.Request.GAME_REQUEST,
+					next_cmd=GameRequest.GET_GAME_STATUS,
+					room_id=self.player.room_id,
+					game_id=self.player.game_id,
+					dest=MessageDestination.GAME,
+					delivery=MessageDestination.UNICAST
+				))
+				self._logger.debug(f'Sent a {GameRequest.GET_GAME_STATUS.name} message to the backend')
+
+	def set_game_details(self, msg_recv):
+		self.player.game_id = msg_recv.get_payload_value('game_id')
+		self.player.set_deck(msg_recv.get_payload_value('cards'))
+		self._logger.debug(f"Cards {str(msg_recv.get_payload_value('cards'))}")
+		self.player.top_card = msg_recv.get_payload_value('extra_data')
+
+	def set_cur_player(self, msg_recv):
+		self.current_player = msg_recv.get_payload_value('user_id')
+		self._logger.debug(f'Current player={self.current_player}' \
+						   f' , current roomates={str(self.current_roomates)}')
+		cur_player = [item.get('nickname') for item in self.current_roomates
+					  if self.current_player == item.get('user_id')][0]
+		print('Currently playing: {0}'.format(cur_player))
+		self._logger.debug('Currently playing: {0}'.format(cur_player))
+
+	def game_loop(self, msg_recv):
+		self.set_cur_player(msg_recv)
+		msg_snd = self.r_game_menu()
+		if all([self.current_player == self.player.user_id, msg_snd]):
+			self.socket.send_pyobj(msg_snd)
+		else:
+			print('Not your turn!!',
+				  self.current_player, ' is still playing!!')
+			self._logger.debug(f'Not your turn!!!' \
+							   f'{self.current_player} is still playing!!')
+
+	def handle_recv_message(self, msg_recv):
+		if msg_recv and msg_recv.get_payload_value('prompt') == DiscardMsg.Response.GAME_HAS_STARTED:
+			if all([self.connection_message_sent,
+					not self.connection_created,
+					not self.chosen_initial_player]):	# connection established
+				self.connection_created = True
+				self.set_game_details()
+				msg_recv = None # handle a received message once
+		if msg_recv and msg_recv.get_payload_value('prompt') == DiscardMsg.Response.GET_ROOMATES:
+			if all([self.connection_message_sent,
+					self.connection_created,
+					not self.chosen_initial_player]):	# choose initial player
+				self.r_choose_initial_player(msg_recv)
+				self.chosen_initial_player = True
+				msg_recv = None # handle a received message once
+		if msg_recv and msg_recv.get('cmd') == DiscardMsg.Response.PLAY_MOVE:
+			if all([self.connection_created,
+					self.connection_message_sent,
+					self.chosen_player]):
+				self.player.set_message_to_process(msg_recv)
+				msg_recv = None # handle a received message once
+		if msg_recv and msg_recv.get('cmd') == DiscardMsg.Response.SET_INITIAL_PLAYER:
+			if all([self.connection_created,
+					self.connection_message_sent,
+					self.chosen_player]):
+				print(msg_recv.get_payload_value('prompt'))
+				self._logger.debug(f"Received message from the server: {str(msg_recv.get_payload_value('prompt'))}")
+		if msg_recv and msg_recv.get_payload_value('prompt') == DiscardMsg.Response.GET_GAME_STATUS:
+			if all([self.connection_created,
+					self.connection_message_sent,
+					self.chosen_player]):
+				self.game_loop(msg_recv)
+				msg_recv = None	# handle a received message once
+		if msg_recv and msg_recv.get('cmd') == GameStatus.ENDED:
+			print('Player ended game session')
+			self._logger.debug('Player ended game session')
+			self.close_game()
+
 	# Method of entry
-	def main(self):
+	def nonblocking_main(self):
+		self._logger.info('CmdUI')
+		self.landing_page_menu()
+		msg_recv = None
+		while True:
+			self.handle_outgoing_messages(msg_recv)
+			# Try to receive message
+			try:
+				msg_recv = self.socket.recv_pyobj(flags=zmq.NOBLOCK)
+			except zmq.ZMQError as exc:
+				if exc.errno == zmq.EAGAIN:
+					pass
+				else:
+					raise
+
+			self.handle_recv_message(msg_recv)
+
+
+	# Method of entry
+	def blocking_main(self):
 		self._logger.info('CmdUI')
 		self.landing_page_menu()
 		self.create_new_game_conn()
@@ -358,7 +531,7 @@ if __name__ == '__main__':
 	if args.server_port:
 		try:
 			c = CmdUI()
-			c.main()
+			c.nonblocking_main()
 		except(SystemExit, KeyboardInterrupt):
 			c.close_on_panic()
 			print('\n Player has exited game \n')

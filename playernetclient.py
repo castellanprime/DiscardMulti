@@ -255,8 +255,8 @@ class NetClient(object):
 				else:
 					yield self.send_with_websocket(msg_recv)
 					msg_recv = yield self.read_with_websocket()
-					while msg_recv.get_payload_value('prompt') == DiscardMsg.Response.GAME_IS_STARTING:
-						msg_recv = yield self.read_with_websocket()
+					# while msg_recv.get_payload_value('prompt') == DiscardMsg.Response.GAME_IS_STARTING:
+					# 	msg_recv = yield self.read_with_websocket()
 					self.socket.send_pyobj(msg_recv)
 
 	def cleanup(self):
@@ -278,7 +278,7 @@ if __name__ == '__main__':
 		ui = CmdUI(port)
 		import threading
 
-		t = threading.Thread(target=ui.main)
+		t = threading.Thread(target=ui.nonblocking_main)
 		t.start()
 		n = NetClient(
 			port,
