@@ -80,6 +80,7 @@ class GameServer(object):
                 )
             )
             print('{0} is now the initial player'.format(msg.get_payload_value('user_name')))
+            self._logger.debug('{0} is now the initial player'.format(msg.get_payload_value('user_name')))
         else:
             self.socket.send_string(
                 DiscardMsg.to_json(
@@ -92,6 +93,7 @@ class GameServer(object):
                 )
             )
             print('{0} is already the initial player'.format(cur_player))
+            self._logger.debug('{0} is already the initial player'.format(cur_player))
         self._logger.debug(f'Sent back a game message for setting the initial player')
 
     def get_game_status(self, msg):

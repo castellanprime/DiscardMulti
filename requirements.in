@@ -1,0 +1,9 @@
+Flask
+tornado
+jsonpickle
+pyzmq
+python-dotenv
+watchdog
+blinker
+simplejson
+certifi

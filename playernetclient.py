@@ -255,12 +255,10 @@ class NetClient(object):
 				else:
 					yield self.send_with_websocket(msg_recv)
 					msg_recv = yield self.read_with_websocket()
-					# while msg_recv.get_payload_value('prompt') == DiscardMsg.Response.GAME_IS_STARTING:
-					# 	msg_recv = yield self.read_with_websocket()
 					self.socket.send_pyobj(msg_recv)
 
 	def cleanup(self):
-		self.socket.send_pyobj(dict(
+		self.socket.send_pyobj(DiscardMsg(
 			cmd=GameStatus.ENDED
 		))
 		self.user_exit = True
