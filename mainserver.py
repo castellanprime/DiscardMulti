@@ -18,26 +18,11 @@ from serverenums import GameRequest
 from gamemessage import DiscardMsg
 
 def enable_server_logging():
-    # options.options.logging = None
     options.options['log_file_prefix'] = 'mainserver.log'
     options.parse_command_line()
 
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
-    # access_log = logging.getLogger('tornado.access')
-    # gen_log = logging.getLogger('tornado.general')
-    # app_log = logging.getLogger('tornado.application')
-    # access_log.setLevel(logging.DEBUG)
-    # gen_log.setLevel(logging.DEBUG)
-    # app_log.setLevel(logging.DEBUG)
-
-    # file_handler = logging.FileHandler('mainserver.log')
-    # access_log.addHandler(file_handler)
-    # gen_log.addHandler(file_handler)
-    # app_log.addHandler(file_handler)
-    # access_log.propagate = False
-    # gen_log.propagate = False
-    # app_log.propagate = False
 
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(logging.INFO)
