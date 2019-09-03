@@ -120,10 +120,10 @@ class Client(object):
         self._logger.debug('Closing the netclient')
         # sys.exit(0)
 
-def sig_exit(signum, frame, obj):
-    TLoop.IOLoop.current().add_callback_from_signal(partial(cleanup, obj))
+def sig_exit(obj, signum, frame):
+    TLoop.IOLoop.current().add_callback_from_signal(partial(cleanupCb, obj))
 
-def cleanup(signum, frame, obj):
+def cleanupCb(obj, signum, frame):
     obj.u.close_game()
     obj.n.cleanup()
     TLoop.IOLoop.current().stop()
@@ -132,15 +132,18 @@ def cleanup(signum, frame, obj):
 def main():
     import threading, signal
     port = get_random_port()
-    ui = CmdUI(port)
-    ui_thread = threading.Thread(target=ui.nonblocking_main())
-    ui_thread.start()
+    print(f'mine')
+    # ui_thread = threading.Thread(target=ui.nonblocking_main())
+    # ui_thread.start()
     netclient = Client(port, 'ws://localhost:8888/wshandler')
     netclient._logger.debug(f'Running on a port: {str(port)}')
+    ui = CmdUI(port)
+    ui_thread = threading.Thread(target=ui.nonblocking_main)
+    ui_thread.start()
+    TLoop.IOLoop.current().spawn_callback(netclient.communicate_with_server)
     obj = dict(u=ui, n=netclient)
     signal.signal(signal.SIGINT, partial(sig_exit, obj))
     signal.signal(signal.SIGTERM, partial(sig_exit, obj))
-    TLoop.IOLoop.current().spawn_callback(netclient.communicate_with_server)
     TLoop.IOLoop.current().start()
 
 if __name__ == '__main__':
